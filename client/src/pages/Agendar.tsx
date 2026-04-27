@@ -190,19 +190,25 @@ export default function Agendar() {
         }),
       });
 
-      const json = await res.json();
+const contentType = res.headers.get("content-type") || "";
 
-      if (res.ok && json.status === "confirmado") {
-        setMensagemSucesso("Agendamento confirmado com sucesso!");
-        setTelefone("");
-        setServicosSelecionados([]);
-        setSelectedHora("");
-        void buscarHorarios(selectedDate, selectedBarbeiroId);
-      } else {
-        setMensagemErro(
-          json.mensagem || json.erro || "Erro ao confirmar."
-        );
-      }
+const payload = contentType.includes("application/json")
+  ? await res.json()
+  : await res.text();
+
+if (!res.ok) {
+  setMensagemErro(getMensagemErro(payload));
+  return;
+}
+
+// 👉 sucesso independente de "status"
+setMensagemSucesso("Agendamento enviado com sucesso!");
+
+setTelefone("");
+setServicosSelecionados([]);
+setSelectedHora("");
+
+void buscarHorarios(selectedDate, selectedBarbeiroId);
     } catch {
       setMensagemErro("Erro ao enviar agendamento.");
     } finally {
