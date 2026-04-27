@@ -648,13 +648,14 @@ function AgendamentoLinha({
     <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="font-black">
-            {formatHora(agendamento.inicio)} — {agendamento.cliente}
-          </div>
-          <div className="mt-1 text-sm text-white/60">
-            {agendamento.servico}
-            {agendamento.barbeiro_nome ? ` • ${agendamento.barbeiro_nome}` : ""}
-          </div>
+<div className="font-black">
+  {formatData(agendamento.data)} às {formatHora(agendamento.inicio)} — {agendamento.cliente}
+</div>
+
+<div className="mt-1 text-sm text-white/60">
+  {agendamento.servico}
+  {agendamento.barbeiro_nome ? ` • ${agendamento.barbeiro_nome}` : ""}
+</div>
         </div>
 
         <div className="flex flex-wrap gap-2">
