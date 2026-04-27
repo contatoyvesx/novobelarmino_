@@ -3,6 +3,8 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock,
+  History,
+  LayoutDashboard,
   LogOut,
   Phone,
   RefreshCcw,
@@ -15,11 +17,13 @@ import AgendaVisual from "@/components/AgendaVisual";
 
 const API = import.meta.env.VITE_API_URL || "/api";
 
+type Aba = "dashboard" | "pendentes" | "agenda" | "historico";
 type Status = "pendente" | "confirmado" | "cancelado";
 
 type Agendamento = {
   id: number;
   barbeiro_id?: number | string;
+  barbeiro_nome?: string;
   cliente: string;
   telefone: string;
   servico: string;
@@ -52,6 +56,15 @@ function formatData(data: string) {
   return `${dia}/${mes}/${ano}`;
 }
 
+function limparTelefone(telefone: string) {
+  return telefone.replace(/\D/g, "");
+}
+
+function whatsappLink(telefone: string) {
+  const numero = limparTelefone(telefone);
+  return `https://wa.me/55${numero}`;
+}
+
 function getMensagem(payload: any) {
   if (!payload) return "Erro inesperado.";
   if (typeof payload === "string") return payload;
@@ -62,7 +75,7 @@ function AdminLogin({ onLogin }: { onLogin: (token: string) => void }) {
   const [token, setToken] = useState("");
 
   return (
-    <main className="min-h-screen bg-[#120000] text-white flex items-center justify-center px-4">
+    <main className="min-h-screen bg-zinc-950 text-white flex items-center justify-center px-4">
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl">
         <h1 className="text-3xl font-black mb-2">Painel Admin</h1>
         <p className="text-sm text-white/60 mb-5">
@@ -92,6 +105,7 @@ function AdminLogin({ onLogin }: { onLogin: (token: string) => void }) {
 }
 
 export default function Admin() {
+  const [aba, setAba] = useState<Aba>("dashboard");
   const [token, setToken] = useState(localStorage.getItem("belarmino_admin_token") || "");
   const [data, setData] = useState(hojeISO());
   const [barbeiroId, setBarbeiroId] = useState(
@@ -133,7 +147,6 @@ export default function Admin() {
 
     try {
       const res = await fetch(`${API}/admin/barbeiros`, { headers });
-
       const payload = await res.json().catch(() => ({}));
 
       if (res.status === 401) {
@@ -298,6 +311,17 @@ export default function Admin() {
     [pendentes]
   );
 
+  const historico = useMemo(
+    () =>
+      [...agendaOrdenada]
+        .filter((a) => a.status !== "pendente")
+        .sort((a, b) => {
+          if (a.data !== b.data) return b.data.localeCompare(a.data);
+          return b.inicio.localeCompare(a.inicio);
+        }),
+    [agendaOrdenada]
+  );
+
   const doDia = agendaOrdenada;
   const confirmados = doDia.filter((a) => a.status === "confirmado");
   const cancelados = doDia.filter((a) => a.status === "cancelado");
@@ -307,13 +331,13 @@ export default function Admin() {
   }
 
   return (
-    <main className="min-h-screen bg-[#120000] text-white px-4 py-5">
+    <main className="min-h-screen bg-zinc-950 text-white px-4 py-5">
       <div className="mx-auto max-w-7xl">
         <header className="mb-5 flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/[0.04] p-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-3xl font-black">Painel Admin</h1>
+            <h1 className="text-3xl font-black">Belarmino Admin</h1>
             <p className="text-sm text-white/60">
-              Controle rápido dos agendamentos da barbearia.
+              Dashboard simples para controlar os agendamentos.
             </p>
           </div>
 
@@ -360,6 +384,40 @@ export default function Admin() {
           </div>
         </header>
 
+        <nav className="mb-5 grid grid-cols-2 gap-2 md:flex">
+          <TabButton
+            ativo={aba === "dashboard"}
+            onClick={() => setAba("dashboard")}
+            icon={<LayoutDashboard size={16} />}
+          >
+            Dashboard
+          </TabButton>
+
+          <TabButton
+            ativo={aba === "pendentes"}
+            onClick={() => setAba("pendentes")}
+            icon={<Clock size={16} />}
+          >
+            Pendentes
+          </TabButton>
+
+          <TabButton
+            ativo={aba === "agenda"}
+            onClick={() => setAba("agenda")}
+            icon={<CalendarDays size={16} />}
+          >
+            Agenda
+          </TabButton>
+
+          <TabButton
+            ativo={aba === "historico"}
+            onClick={() => setAba("historico")}
+            icon={<History size={16} />}
+          >
+            Histórico
+          </TabButton>
+        </nav>
+
         {erro && (
           <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
             {erro}
@@ -372,104 +430,157 @@ export default function Admin() {
           </div>
         )}
 
-        <section className="mb-5 grid gap-4 md:grid-cols-4">
-          <Card titulo="Pendentes gerais" valor={pendentesOrdenados.length} tipo="pendente" />
-          <Card titulo="Agenda do dia" valor={doDia.length} tipo="normal" />
-          <Card titulo="Confirmados" valor={confirmados.length} tipo="confirmado" />
-          <Card titulo="Cancelados" valor={cancelados.length} tipo="cancelado" />
-        </section>
+        {aba === "dashboard" && (
+          <>
+            <section className="mb-5 grid gap-4 md:grid-cols-4">
+              <Card titulo="Pendentes" valor={pendentesOrdenados.length} tipo="pendente" />
+              <Card titulo="Hoje" valor={doDia.length} tipo="normal" />
+              <Card titulo="Confirmados" valor={confirmados.length} tipo="confirmado" />
+              <Card titulo="Cancelados" valor={cancelados.length} tipo="cancelado" />
+            </section>
 
-        <section className="mb-5 rounded-3xl border border-amber-500/20 bg-amber-500/[0.07] p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <Clock size={20} className="text-amber-300" />
-            <h2 className="text-2xl font-black">Pendências de agendamento</h2>
-          </div>
-
-          {pendentesOrdenados.length === 0 ? (
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/60">
-              Nenhum agendamento pendente.
-            </div>
-          ) : (
-            <div className="grid gap-3 lg:grid-cols-2">
-              {pendentesOrdenados.map((p) => (
-                <div
-                  key={p.id}
-                  className="rounded-2xl border border-white/10 bg-black/30 p-4"
-                >
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2 text-lg font-black">
-                        <User size={17} />
-                        {p.cliente}
-                      </div>
-
-                      <div className="mt-1 text-sm text-white/60">
-                        {formatData(p.data)} às {formatHora(p.inicio)}
-                      </div>
-                    </div>
-
-                    <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-black text-amber-300">
-                      PENDENTE
-                    </span>
-                  </div>
-
-                  <div className="grid gap-2 text-sm text-white/75">
-                    <div className="flex items-center gap-2">
-                      <Phone size={15} />
-                      {p.telefone}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Scissors size={15} />
-                      {p.servico}
-                    </div>
-
-                    {p.barbeiro_id && (
-                      <div className="text-white/50">
-                        Barbeiro ID: {String(p.barbeiro_id)}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => atualizarStatus(p.id, "confirmado")}
-                      disabled={savingId === p.id}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm font-black text-green-300 disabled:opacity-50"
-                    >
-                      <CheckCircle2 size={16} />
-                      Confirmar
-                    </button>
-
-                    <button
-                      onClick={() => atualizarStatus(p.id, "cancelado")}
-                      disabled={savingId === p.id}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-black text-red-300 disabled:opacity-50"
-                    >
-                      <XCircle size={16} />
-                      Cancelar
-                    </button>
-                  </div>
+            <section className="grid gap-5 lg:grid-cols-2">
+              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+                <div className="mb-4 flex items-center gap-2">
+                  <Clock size={20} className="text-amber-300" />
+                  <h2 className="text-2xl font-black">Próximos de hoje</h2>
                 </div>
-              ))}
+
+                {doDia.length === 0 ? (
+                  <Empty texto="Nenhum agendamento para o dia selecionado." />
+                ) : (
+                  <div className="grid gap-3">
+                    {doDia.slice(0, 6).map((a) => (
+                      <AgendamentoLinha
+                        key={a.id}
+                        agendamento={a}
+                        saving={savingId === a.id}
+                        onConfirmar={() => atualizarStatus(a.id, "confirmado")}
+                        onCancelar={() => atualizarStatus(a.id, "cancelado")}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-3xl border border-amber-500/20 bg-amber-500/[0.07] p-5">
+                <div className="mb-4 flex items-center gap-2">
+                  <Scissors size={20} className="text-amber-300" />
+                  <h2 className="text-2xl font-black">Pendências rápidas</h2>
+                </div>
+
+                {pendentesOrdenados.length === 0 ? (
+                  <Empty texto="Nenhum agendamento pendente." />
+                ) : (
+                  <div className="grid gap-3">
+                    {pendentesOrdenados.slice(0, 5).map((p) => (
+                      <AgendamentoLinha
+                        key={p.id}
+                        agendamento={p}
+                        saving={savingId === p.id}
+                        onConfirmar={() => atualizarStatus(p.id, "confirmado")}
+                        onCancelar={() => atualizarStatus(p.id, "cancelado")}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+          </>
+        )}
+
+        {aba === "pendentes" && (
+          <section className="rounded-3xl border border-amber-500/20 bg-amber-500/[0.07] p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <Clock size={20} className="text-amber-300" />
+              <h2 className="text-2xl font-black">Pendentes</h2>
             </div>
-          )}
-        </section>
 
-        <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <CalendarDays size={20} />
-            <h2 className="text-2xl font-black">Agenda visual do dia</h2>
-          </div>
+            {pendentesOrdenados.length === 0 ? (
+              <Empty texto="Nenhum agendamento pendente." />
+            ) : (
+              <div className="grid gap-3 lg:grid-cols-2">
+                {pendentesOrdenados.map((p) => (
+                  <AgendamentoCard
+                    key={p.id}
+                    agendamento={p}
+                    saving={savingId === p.id}
+                    onConfirmar={() => atualizarStatus(p.id, "confirmado")}
+                    onCancelar={() => atualizarStatus(p.id, "cancelado")}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
-          <AgendaVisual
-            agendamentos={agendaOrdenada}
-            onConfirmar={(id) => atualizarStatus(id, "confirmado")}
-            onCancelar={(id) => atualizarStatus(id, "cancelado")}
-          />
-        </section>
+        {aba === "agenda" && (
+          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <CalendarDays size={20} />
+              <h2 className="text-2xl font-black">Agenda do dia</h2>
+            </div>
+
+            <AgendaVisual
+              agendamentos={agendaOrdenada}
+              onConfirmar={(id) => atualizarStatus(id, "confirmado")}
+              onCancelar={(id) => atualizarStatus(id, "cancelado")}
+            />
+          </section>
+        )}
+
+        {aba === "historico" && (
+          <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <History size={20} />
+              <h2 className="text-2xl font-black">Histórico</h2>
+            </div>
+
+            {historico.length === 0 ? (
+              <Empty texto="Nenhum corte finalizado ou cancelado nesta data." />
+            ) : (
+              <div className="grid gap-3 lg:grid-cols-2">
+                {historico.map((a) => (
+                  <AgendamentoCard
+                    key={a.id}
+                    agendamento={a}
+                    saving={savingId === a.id}
+                    onConfirmar={() => atualizarStatus(a.id, "confirmado")}
+                    onCancelar={() => atualizarStatus(a.id, "cancelado")}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
       </div>
     </main>
+  );
+}
+
+function TabButton({
+  ativo,
+  onClick,
+  icon,
+  children,
+}: {
+  ativo: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black transition ${
+        ativo
+          ? "bg-amber-500 text-black"
+          : "border border-white/10 bg-white/[0.04] text-white/70 hover:bg-white/10"
+      }`}
+    >
+      {icon}
+      {children}
+    </button>
   );
 }
 
@@ -495,6 +606,168 @@ function Card({
     <div className={`rounded-3xl border p-5 ${cor}`}>
       <div className="text-sm font-bold opacity-80">{titulo}</div>
       <div className="mt-2 text-4xl font-black">{valor}</div>
+    </div>
+  );
+}
+
+function Empty({ texto }: { texto: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/60">
+      {texto}
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: Status }) {
+  const cor =
+    status === "pendente"
+      ? "bg-amber-500/15 text-amber-300"
+      : status === "confirmado"
+        ? "bg-green-500/15 text-green-300"
+        : "bg-red-500/15 text-red-300";
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${cor}`}>
+      {status}
+    </span>
+  );
+}
+
+function AgendamentoLinha({
+  agendamento,
+  saving,
+  onConfirmar,
+  onCancelar,
+}: {
+  agendamento: Agendamento;
+  saving: boolean;
+  onConfirmar: () => void;
+  onCancelar: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="font-black">
+            {formatHora(agendamento.inicio)} — {agendamento.cliente}
+          </div>
+          <div className="mt-1 text-sm text-white/60">
+            {agendamento.servico}
+            {agendamento.barbeiro_nome ? ` • ${agendamento.barbeiro_nome}` : ""}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <StatusBadge status={agendamento.status} />
+
+          <a
+            href={whatsappLink(agendamento.telefone)}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center justify-center gap-1 rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-xs font-black"
+          >
+            <Phone size={14} />
+            WhatsApp
+          </a>
+
+          {agendamento.status === "pendente" && (
+            <>
+              <button
+                onClick={onConfirmar}
+                disabled={saving}
+                className="rounded-xl border border-green-500/30 bg-green-500/10 px-3 py-2 text-xs font-black text-green-300 disabled:opacity-50"
+              >
+                Confirmar
+              </button>
+
+              <button
+                onClick={onCancelar}
+                disabled={saving}
+                className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-black text-red-300 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AgendamentoCard({
+  agendamento,
+  saving,
+  onConfirmar,
+  onCancelar,
+}: {
+  agendamento: Agendamento;
+  saving: boolean;
+  onConfirmar: () => void;
+  onCancelar: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 text-lg font-black">
+            <User size={17} />
+            {agendamento.cliente}
+          </div>
+
+          <div className="mt-1 text-sm text-white/60">
+            {formatData(agendamento.data)} às {formatHora(agendamento.inicio)}
+          </div>
+        </div>
+
+        <StatusBadge status={agendamento.status} />
+      </div>
+
+      <div className="grid gap-2 text-sm text-white/75">
+        <div className="flex items-center gap-2">
+          <Phone size={15} />
+          {agendamento.telefone}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Scissors size={15} />
+          {agendamento.servico}
+        </div>
+
+        {agendamento.barbeiro_nome && (
+          <div className="text-white/50">Barbeiro: {agendamento.barbeiro_nome}</div>
+        )}
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <a
+          href={whatsappLink(agendamento.telefone)}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-sm font-black"
+        >
+          <Phone size={16} />
+          WhatsApp
+        </a>
+
+        <button
+          onClick={onConfirmar}
+          disabled={saving}
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm font-black text-green-300 disabled:opacity-50"
+        >
+          <CheckCircle2 size={16} />
+          Confirmar
+        </button>
+
+        <button
+          onClick={onCancelar}
+          disabled={saving}
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-black text-red-300 disabled:opacity-50"
+        >
+          <XCircle size={16} />
+          Cancelar
+        </button>
+      </div>
     </div>
   );
 }
