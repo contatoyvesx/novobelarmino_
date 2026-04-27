@@ -23,7 +23,10 @@ export const horaSchema = z
     );
   }, "Hora deve estar no formato HH:MM.");
 
-export const barbeiroIdSchema = z.string().uuid({ message: "barbeiro_id inválido." });
+export const barbeiroIdSchema = z.coerce
+  .number()
+  .int("barbeiro_id inválido.")
+  .positive("barbeiro_id inválido.");
 
 export const horariosQuerySchema = z.object({
   data: dataSchema,
