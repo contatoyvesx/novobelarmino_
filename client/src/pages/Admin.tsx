@@ -1,4 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  CalendarDays,
+  CheckCircle2,
+  Clock,
+  LogOut,
+  Phone,
+  RefreshCcw,
+  Scissors,
+  User,
+  XCircle,
+} from "lucide-react";
 
 import AgendaVisual from "@/components/AgendaVisual";
 
@@ -8,6 +19,7 @@ type Status = "pendente" | "confirmado" | "cancelado";
 
 type Agendamento = {
   id: number;
+  barbeiro_id?: number | string;
   cliente: string;
   telefone: string;
   servico: string;
@@ -15,10 +27,11 @@ type Agendamento = {
   inicio: string;
   fim: string;
   status: Status;
+  created_at?: string;
 };
 
 type Barbeiro = {
-  id: string;
+  id: string | number;
   nome: string;
 };
 
@@ -29,237 +42,459 @@ function hojeISO() {
   ).padStart(2, "0")}`;
 }
 
-/* ================= LOGIN ================= */
+function formatHora(hora: string) {
+  return (hora || "").slice(0, 5);
+}
 
-function AdminLogin({ onLogin }: { onLogin: (t: string) => void }) {
+function formatData(data: string) {
+  if (!data) return "";
+  const [ano, mes, dia] = data.split("-");
+  return `${dia}/${mes}/${ano}`;
+}
+
+function getMensagem(payload: any) {
+  if (!payload) return "Erro inesperado.";
+  if (typeof payload === "string") return payload;
+  return payload.mensagem || payload.erro || payload.message || "Erro inesperado.";
+}
+
+function AdminLogin({ onLogin }: { onLogin: (token: string) => void }) {
   const [token, setToken] = useState("");
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 20,
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 420,
-          padding: 24,
-          border: "1px solid rgba(255,255,255,.14)",
-          borderRadius: 12,
-          background: "rgba(0,0,0,.35)",
-          boxShadow: "0 12px 32px rgba(0,0,0,.35)",
-        }}
-      >
-        <h2 style={{ marginBottom: 12, fontSize: 20, fontWeight: 900 }}>Área do Barbeiro</h2>
-        <p style={{ marginBottom: 16, opacity: 0.8 }}>
-          Digite sua senha para acessar o painel de horários.
+    <main className="min-h-screen bg-[#120000] text-white flex items-center justify-center px-4">
+      <div className="w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl">
+        <h1 className="text-3xl font-black mb-2">Painel Admin</h1>
+        <p className="text-sm text-white/60 mb-5">
+          Digite a senha para acessar os agendamentos.
         </p>
+
         <input
           type="password"
           placeholder="Senha de acesso"
           value={token}
           onChange={(e) => setToken(e.target.value)}
-          style={{
-            width: "100%",
-            height: 42,
-            marginBottom: 12,
-            borderRadius: 8,
-            padding: "0 12px",
-            border: "1px solid rgba(255,255,255,.14)",
-            background: "rgba(0,0,0,.25)",
-            color: "#fff",
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && token.trim()) onLogin(token.trim());
           }}
+          className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 outline-none mb-4"
         />
+
         <button
-          style={{
-            width: "100%",
-            height: 42,
-            fontWeight: 800,
-            borderRadius: 8,
-            background: "linear-gradient(120deg,#f97316,#c026d3)",
-            color: "#fff",
-            border: "none",
-          }}
-          onClick={() => onLogin(token)}
+          onClick={() => token.trim() && onLogin(token.trim())}
+          className="w-full rounded-2xl bg-amber-500 px-4 py-3 font-black text-black hover:bg-amber-400"
         >
           Entrar
         </button>
       </div>
-    </div>
+    </main>
   );
 }
 
-/* ================= ADMIN ================= */
-
 export default function Admin() {
   const [token, setToken] = useState(localStorage.getItem("belarmino_admin_token") || "");
-  const [barbeiroId, setBarbeiroId] = useState(localStorage.getItem("belarmino_admin_barbeiro") || "");
   const [data, setData] = useState(hojeISO());
+  const [barbeiroId, setBarbeiroId] = useState(
+    localStorage.getItem("belarmino_admin_barbeiro") || ""
+  );
 
   const [barbeiros, setBarbeiros] = useState<Barbeiro[]>([]);
-  const [items, setItems] = useState<Agendamento[]>([]);
+  const [agenda, setAgenda] = useState<Agendamento[]>([]);
+  const [pendentes, setPendentes] = useState<Agendamento[]>([]);
+
   const [loading, setLoading] = useState(false);
+  const [savingId, setSavingId] = useState<number | null>(null);
   const [erro, setErro] = useState("");
-
-  /* ===== FORCE LOGIN ON FIRST VISIT ===== */
-
-  useEffect(() => {
-    localStorage.removeItem("belarmino_admin_token");
-    localStorage.removeItem("belarmino_admin_barbeiro");
-    setToken("");
-    setBarbeiroId("");
-  }, []);
-
-  /* ===== AUTH ===== */
+  const [sucesso, setSucesso] = useState("");
 
   function login(t: string) {
     localStorage.setItem("belarmino_admin_token", t);
     setToken(t);
   }
 
-  function logout() {
+  const logout = useCallback(() => {
     localStorage.removeItem("belarmino_admin_token");
     localStorage.removeItem("belarmino_admin_barbeiro");
     setToken("");
     setBarbeiroId("");
-    setItems([]);
-  }
+    setAgenda([]);
+    setPendentes([]);
+  }, []);
 
-  /* ===== LOAD BARBEIROS ===== */
+  const headers = useMemo(
+    () => ({
+      "x-admin-token": token,
+    }),
+    [token]
+  );
 
-  useEffect(() => {
+  const carregarBarbeiros = useCallback(async () => {
     if (!token) return;
 
-    fetch(`${API}/admin/barbeiros`, {
-      headers: { "x-admin-token": token },
-    })
-      .then(async (r) => {
-        if (r.status === 401) {
-          logout();
-          return [] as Barbeiro[];
-        }
-
-        if (!r.ok) {
-          const j = await r.json().catch(() => ({}));
-          throw new Error(j?.mensagem || "Erro ao carregar barbeiros");
-        }
-
-        const j = await r.json();
-        return j.barbeiros || [];
-      })
-      .then((lista) => setBarbeiros(lista))
-      .catch((e) => setErro(e.message || "Erro ao carregar barbeiros"));
-  }, [token]);
-
-  /* ===== LOAD AGENDA ===== */
-
-  async function carregar() {
-    if (!barbeiroId) return;
-
-    setErro("");
-    setLoading(true);
-
     try {
-      const r = await fetch(
-        `${API}/admin/agendamentos?data=${data}&barbeiro_id=${barbeiroId}&token=${token}`
-      );
+      const res = await fetch(`${API}/admin/barbeiros`, { headers });
 
-      if (r.status === 401) {
+      const payload = await res.json().catch(() => ({}));
+
+      if (res.status === 401) {
         logout();
         return;
       }
 
-      const j = await r.json();
-      if (!r.ok) throw new Error(j?.mensagem);
+      if (!res.ok) throw new Error(getMensagem(payload));
 
-      setItems(j.agendamentos || []);
+      const lista = payload.barbeiros || [];
+      setBarbeiros(lista);
+
+      if (!barbeiroId && lista.length > 0) {
+        const primeiro = String(lista[0].id);
+        setBarbeiroId(primeiro);
+        localStorage.setItem("belarmino_admin_barbeiro", primeiro);
+      }
     } catch (e: any) {
-      setErro(e.message || "Erro");
-      setItems([]);
+      setErro(e.message || "Erro ao carregar barbeiros.");
+    }
+  }, [token, headers, logout, barbeiroId]);
+
+  const carregarPendentes = useCallback(async () => {
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${API}/admin/pendentes`, { headers });
+      const payload = await res.json().catch(() => ({}));
+
+      if (res.status === 401) {
+        logout();
+        return;
+      }
+
+      if (!res.ok) {
+        setPendentes([]);
+        return;
+      }
+
+      const lista = Array.isArray(payload)
+        ? payload
+        : payload.pendentes || payload.agendamentos || [];
+
+      setPendentes(lista);
+    } catch {
+      setPendentes([]);
+    }
+  }, [token, headers, logout]);
+
+  const carregarAgenda = useCallback(async () => {
+    if (!token || !barbeiroId) return;
+
+    setLoading(true);
+    setErro("");
+    setSucesso("");
+
+    try {
+      const res = await fetch(
+        `${API}/admin/agendamentos?data=${encodeURIComponent(
+          data
+        )}&barbeiro_id=${encodeURIComponent(String(barbeiroId))}`,
+        { headers }
+      );
+
+      const payload = await res.json().catch(() => ({}));
+
+      if (res.status === 401) {
+        logout();
+        return;
+      }
+
+      if (!res.ok) throw new Error(getMensagem(payload));
+
+      setAgenda(payload.agendamentos || []);
+      await carregarPendentes();
+    } catch (e: any) {
+      setErro(e.message || "Erro ao carregar agenda.");
+      setAgenda([]);
     } finally {
       setLoading(false);
     }
-  }
-
-  /* ===== UPDATE STATUS ===== */
+  }, [token, barbeiroId, data, headers, logout, carregarPendentes]);
 
   async function atualizarStatus(id: number, status: Status) {
-    try {
-      const r = await fetch(`${API}/admin/agendamentos/${id}?token=${token}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
+    setSavingId(id);
+    setErro("");
+    setSucesso("");
 
-      if (r.status === 401) {
-        logout();
-        return;
+    const rotas = [
+      `${API}/admin/agendamentos/${id}/status`,
+      `${API}/admin/agendamentos/${id}`,
+    ];
+
+    try {
+      let funcionou = false;
+      let ultimaMensagem = "";
+
+      for (const rota of rotas) {
+        const res = await fetch(rota, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "x-admin-token": token,
+          },
+          body: JSON.stringify({ status }),
+        });
+
+        const payload = await res.json().catch(() => ({}));
+
+        if (res.status === 401) {
+          logout();
+          return;
+        }
+
+        if (res.ok) {
+          funcionou = true;
+          break;
+        }
+
+        ultimaMensagem = getMensagem(payload);
       }
 
-      if (!r.ok) throw new Error();
+      if (!funcionou) throw new Error(ultimaMensagem || "Erro ao atualizar status.");
 
-      setItems((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
-    } catch {
-      alert("Erro ao atualizar status");
+      setSucesso(
+        status === "confirmado"
+          ? "Agendamento confirmado."
+          : "Agendamento cancelado."
+      );
+
+      await carregarAgenda();
+      await carregarPendentes();
+    } catch (e: any) {
+      setErro(e.message || "Erro ao atualizar status.");
+    } finally {
+      setSavingId(null);
     }
   }
 
-  const lista = useMemo(
-    () => [...items].sort((a, b) => (a.inicio > b.inicio ? 1 : -1)),
-    [items]
+  useEffect(() => {
+    if (!token) return;
+    carregarBarbeiros();
+    carregarPendentes();
+  }, [token, carregarBarbeiros, carregarPendentes]);
+
+  useEffect(() => {
+    if (!token || !barbeiroId) return;
+    carregarAgenda();
+  }, [token, barbeiroId, data, carregarAgenda]);
+
+  const agendaOrdenada = useMemo(
+    () => [...agenda].sort((a, b) => a.inicio.localeCompare(b.inicio)),
+    [agenda]
   );
 
-  /* ===== LOGIN GATE ===== */
+  const pendentesOrdenados = useMemo(
+    () =>
+      [...pendentes].sort((a, b) => {
+        if (a.data !== b.data) return a.data.localeCompare(b.data);
+        return a.inicio.localeCompare(b.inicio);
+      }),
+    [pendentes]
+  );
+
+  const doDia = agendaOrdenada;
+  const confirmados = doDia.filter((a) => a.status === "confirmado");
+  const cancelados = doDia.filter((a) => a.status === "cancelado");
 
   if (!token) {
     return <AdminLogin onLogin={login} />;
   }
 
   return (
-    <div style={{ maxWidth: 1000, margin: "0 auto", padding: 20 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 900, flex: 1 }}>Agenda do Barbeiro</h1>
-        <button onClick={logout} style={{ fontWeight: 700 }}>
-          Sair
-        </button>
+    <main className="min-h-screen bg-[#120000] text-white px-4 py-5">
+      <div className="mx-auto max-w-7xl">
+        <header className="mb-5 flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/[0.04] p-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-3xl font-black">Painel Admin</h1>
+            <p className="text-sm text-white/60">
+              Controle rápido dos agendamentos da barbearia.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input
+              type="date"
+              value={data}
+              onChange={(e) => setData(e.target.value)}
+              className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 outline-none"
+            />
+
+            <select
+              value={barbeiroId}
+              onChange={(e) => {
+                setBarbeiroId(e.target.value);
+                localStorage.setItem("belarmino_admin_barbeiro", e.target.value);
+              }}
+              className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 outline-none"
+            >
+              <option value="">Selecione o barbeiro</option>
+              {barbeiros.map((b) => (
+                <option key={String(b.id)} value={String(b.id)}>
+                  {b.nome}
+                </option>
+              ))}
+            </select>
+
+            <button
+              onClick={carregarAgenda}
+              disabled={loading}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 font-bold disabled:opacity-50"
+            >
+              <RefreshCcw size={16} className={loading ? "animate-spin" : ""} />
+              Atualizar
+            </button>
+
+            <button
+              onClick={logout}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 font-bold text-red-300"
+            >
+              <LogOut size={16} />
+              Sair
+            </button>
+          </div>
+        </header>
+
+        {erro && (
+          <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            {erro}
+          </div>
+        )}
+
+        {sucesso && (
+          <div className="mb-4 rounded-2xl border border-green-500/20 bg-green-500/10 px-4 py-3 text-sm text-green-300">
+            {sucesso}
+          </div>
+        )}
+
+        <section className="mb-5 grid gap-4 md:grid-cols-4">
+          <Card titulo="Pendentes gerais" valor={pendentesOrdenados.length} tipo="pendente" />
+          <Card titulo="Agenda do dia" valor={doDia.length} tipo="normal" />
+          <Card titulo="Confirmados" valor={confirmados.length} tipo="confirmado" />
+          <Card titulo="Cancelados" valor={cancelados.length} tipo="cancelado" />
+        </section>
+
+        <section className="mb-5 rounded-3xl border border-amber-500/20 bg-amber-500/[0.07] p-5">
+          <div className="mb-4 flex items-center gap-2">
+            <Clock size={20} className="text-amber-300" />
+            <h2 className="text-2xl font-black">Pendências de agendamento</h2>
+          </div>
+
+          {pendentesOrdenados.length === 0 ? (
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/60">
+              Nenhum agendamento pendente.
+            </div>
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {pendentesOrdenados.map((p) => (
+                <div
+                  key={p.id}
+                  className="rounded-2xl border border-white/10 bg-black/30 p-4"
+                >
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 text-lg font-black">
+                        <User size={17} />
+                        {p.cliente}
+                      </div>
+
+                      <div className="mt-1 text-sm text-white/60">
+                        {formatData(p.data)} às {formatHora(p.inicio)}
+                      </div>
+                    </div>
+
+                    <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-black text-amber-300">
+                      PENDENTE
+                    </span>
+                  </div>
+
+                  <div className="grid gap-2 text-sm text-white/75">
+                    <div className="flex items-center gap-2">
+                      <Phone size={15} />
+                      {p.telefone}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Scissors size={15} />
+                      {p.servico}
+                    </div>
+
+                    {p.barbeiro_id && (
+                      <div className="text-white/50">
+                        Barbeiro ID: {String(p.barbeiro_id)}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => atualizarStatus(p.id, "confirmado")}
+                      disabled={savingId === p.id}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm font-black text-green-300 disabled:opacity-50"
+                    >
+                      <CheckCircle2 size={16} />
+                      Confirmar
+                    </button>
+
+                    <button
+                      onClick={() => atualizarStatus(p.id, "cancelado")}
+                      disabled={savingId === p.id}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-black text-red-300 disabled:opacity-50"
+                    >
+                      <XCircle size={16} />
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+          <div className="mb-4 flex items-center gap-2">
+            <CalendarDays size={20} />
+            <h2 className="text-2xl font-black">Agenda visual do dia</h2>
+          </div>
+
+          <AgendaVisual
+            agendamentos={agendaOrdenada}
+            onConfirmar={(id) => atualizarStatus(id, "confirmado")}
+            onCancelar={(id) => atualizarStatus(id, "cancelado")}
+          />
+        </section>
       </div>
+    </main>
+  );
+}
 
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
-        <input type="date" value={data} onChange={(e) => setData(e.target.value)} />
+function Card({
+  titulo,
+  valor,
+  tipo,
+}: {
+  titulo: string;
+  valor: number;
+  tipo: "pendente" | "confirmado" | "cancelado" | "normal";
+}) {
+  const cor =
+    tipo === "pendente"
+      ? "border-amber-500/20 bg-amber-500/10 text-amber-300"
+      : tipo === "confirmado"
+        ? "border-green-500/20 bg-green-500/10 text-green-300"
+        : tipo === "cancelado"
+          ? "border-red-500/20 bg-red-500/10 text-red-300"
+          : "border-white/10 bg-white/[0.04] text-white";
 
-        <select
-          value={barbeiroId}
-          onChange={(e) => {
-            setBarbeiroId(e.target.value);
-            setItems([]);
-            localStorage.setItem("belarmino_admin_barbeiro", e.target.value);
-          }}
-        >
-          <option value="">Selecione o barbeiro</option>
-          {barbeiros.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.nome}
-            </option>
-          ))}
-        </select>
-
-        <button onClick={carregar} disabled={loading}>
-          {loading ? "Carregando..." : "Carregar"}
-        </button>
-      </div>
-
-      {erro && <div style={{ color: "red", marginTop: 10 }}>{erro}</div>}
-
-      <AgendaVisual
-        agendamentos={lista}
-        onConfirmar={(id) => atualizarStatus(id, "confirmado")}
-        onCancelar={(id) => atualizarStatus(id, "cancelado")}
-      />
+  return (
+    <div className={`rounded-3xl border p-5 ${cor}`}>
+      <div className="text-sm font-bold opacity-80">{titulo}</div>
+      <div className="mt-2 text-4xl font-black">{valor}</div>
     </div>
   );
 }
