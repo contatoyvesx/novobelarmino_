@@ -12,19 +12,12 @@ import { auth } from "@/lib/firebase";
 function getMensagemErro(payload: any) {
   if (!payload) return "Erro inesperado.";
   if (typeof payload === "string") return payload;
-
   if (typeof payload?.mensagem === "string") return payload.mensagem;
   if (typeof payload?.erro === "string") return payload.erro;
   if (typeof payload?.message === "string") return payload.message;
-
-  if (Array.isArray(payload?.errors)) {
-    return payload.errors.map((e: any) => e.message || e).join(", ");
-  }
-
   if (Array.isArray(payload?.issues)) {
     return payload.issues.map((e: any) => e.message || e).join(", ");
   }
-
   return JSON.stringify(payload);
 }
 
@@ -40,48 +33,73 @@ const formatDateApi = (date: Date) => date.toISOString().slice(0, 10);
 type Barbeiro = {
   id: string;
   nome: string;
+  foto: string;
 };
+
+function telefoneValido(tel: string) {
+  const limpo = tel.replace(/\D/g, "");
+
+  if (limpo.length !== 10 && limpo.length !== 11) return false;
+
+  const ddd = Number(limpo.slice(0, 2));
+  if (ddd < 11 || ddd > 99) return false;
+
+  if (limpo.length === 11 && limpo[2] !== "9") return false;
+
+  return true;
+}
+
+function formatarTelefone(valor: string) {
+  const limpo = valor.replace(/\D/g, "").slice(0, 11);
+
+  if (limpo.length <= 2) return limpo;
+  if (limpo.length <= 6) return `(${limpo.slice(0, 2)}) ${limpo.slice(2)}`;
+  if (limpo.length <= 10) {
+    return `(${limpo.slice(0, 2)}) ${limpo.slice(2, 6)}-${limpo.slice(6)}`;
+  }
+
+  return `(${limpo.slice(0, 2)}) ${limpo.slice(2, 7)}-${limpo.slice(7)}`;
+}
 
 export default function Agendar() {
   const dataHoje = useMemo(() => formatDateApi(new Date()), []);
+  const API_URL = import.meta.env.VITE_API_URL || "/api";
+
+  const [etapa, setEtapa] = useState(1);
+
   const [selectedDate, setSelectedDate] = useState<string>(dataHoje);
-
-  const [barbeiros] = useState<Barbeiro[]>([
-    { id: "1", nome: "Pedro" },
-    { id: "2", nome: "Marcelo" },
-    { id: "3", nome: "Guilherme" },
-  ]);
-
   const [selectedBarbeiroId, setSelectedBarbeiroId] = useState<string>("");
+  const [selectedHora, setSelectedHora] = useState("");
 
   const [horarios, setHorarios] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [jaBuscou, setJaBuscou] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
-  const [selectedHora, setSelectedHora] = useState("");
   const [cliente, setCliente] = useState("");
   const [telefone, setTelefone] = useState("");
   const [servicosSelecionados, setServicosSelecionados] = useState<string[]>([]);
+
   const [mensagemErro, setMensagemErro] = useState("");
   const [mensagemSucesso, setMensagemSucesso] = useState("");
 
   const [user, setUser] = useState<User | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
 
-  const API_URL = import.meta.env.VITE_API_URL || "/api";
+  const barbeiros: Barbeiro[] = [
+    { id: "1", nome: "Pedro", foto: "/barbeiros/pedro.jpg" },
+    { id: "2", nome: "Marcelo", foto: "/barbeiros/marcelo.jpg" },
+    { id: "3", nome: "Guilherme", foto: "/barbeiros/guilherme.jpg" },
+  ];
 
-  const servicos = useMemo(
-    () => [
-      "Corte de cabelo",
-      "Barba",
-      "Sobrancelha",
-      "Hidratação capilar",
-      "Limpeza de pele / black mask",
-      "Camuflagem de fios brancos",
-    ],
-    []
-  );
+  const servicos = [
+    "Corte de cabelo",
+    "Barba",
+    "Sobrancelha",
+    "Hidratação capilar",
+    "Limpeza de pele / black mask",
+    "Camuflagem de fios brancos",
+  ];
 
   const dataParaExibicao = useMemo(() => {
     const parsed = new Date(selectedDate + "T00:00:00");
@@ -100,16 +118,6 @@ export default function Agendar() {
 
     return () => unsubscribe();
   }, []);
-
-  const toggleServico = (servico: string) => {
-    setServicosSelecionados((prev) =>
-      prev.includes(servico)
-        ? prev.filter((s) => s !== servico)
-        : [...prev, servico]
-    );
-  };
-
-  const servicosFormatados = servicosSelecionados.join(", ");
 
   const buscarHorarios = useCallback(
     async (data: string, barbeiroId: string) => {
@@ -130,7 +138,6 @@ export default function Agendar() {
           encodeURIComponent(barbeiroId);
 
         const res = await fetch(url, { cache: "no-store" });
-
         const contentType = res.headers.get("content-type") || "";
 
         const payload = contentType.includes("application/json")
@@ -143,8 +150,7 @@ export default function Agendar() {
           return;
         }
 
-        const lista = Array.isArray(payload) ? payload : [];
-        setHorarios(lista);
+        setHorarios(Array.isArray(payload) ? payload : []);
       } catch {
         setMensagemErro("Erro ao buscar horários.");
       } finally {
@@ -156,9 +162,9 @@ export default function Agendar() {
   );
 
   useEffect(() => {
-    if (!user || !selectedBarbeiroId) return;
+    if (!selectedBarbeiroId) return;
     void buscarHorarios(selectedDate, selectedBarbeiroId);
-  }, [buscarHorarios, selectedDate, selectedBarbeiroId, user]);
+  }, [buscarHorarios, selectedDate, selectedBarbeiroId]);
 
   async function login() {
     try {
@@ -166,9 +172,16 @@ export default function Agendar() {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
     } catch (err: any) {
-      console.error("ERRO FIREBASE:", err);
       setMensagemErro(err?.code || "Erro ao entrar com Google.");
     }
+  }
+
+  function toggleServico(servico: string) {
+    setServicosSelecionados((prev) =>
+      prev.includes(servico)
+        ? prev.filter((s) => s !== servico)
+        : [...prev, servico]
+    );
   }
 
   async function confirmarAgendamento() {
@@ -177,13 +190,23 @@ export default function Agendar() {
       return;
     }
 
-    if (!selectedBarbeiroId) {
-      setMensagemErro("Selecione um barbeiro.");
+    if (!selectedDate || !selectedBarbeiroId || !selectedHora) {
+      setMensagemErro("Escolha data, barbeiro e horário.");
       return;
     }
 
-    if (!cliente || !telefone || !servicosSelecionados.length || !selectedHora) {
-      setMensagemErro("Preencha todos os campos.");
+    if (!cliente.trim()) {
+      setMensagemErro("Informe seu nome.");
+      return;
+    }
+
+    if (!telefoneValido(telefone)) {
+      setMensagemErro("Telefone inválido. Informe DDD + número correto.");
+      return;
+    }
+
+    if (!servicosSelecionados.length) {
+      setMensagemErro("Escolha pelo menos um serviço.");
       return;
     }
 
@@ -196,9 +219,9 @@ export default function Agendar() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          cliente,
-          telefone,
-          servico: servicosFormatados,
+          cliente: cliente.trim(),
+          telefone: telefone.replace(/\D/g, ""),
+          servico: servicosSelecionados.join(", "),
           data: selectedDate,
           hora: selectedHora,
           barbeiro_id: selectedBarbeiroId,
@@ -216,13 +239,17 @@ export default function Agendar() {
         return;
       }
 
-      setMensagemSucesso("Agendamento enviado com sucesso!");
+      setMensagemSucesso(
+        "Agendamento solicitado. A confirmação virá pelo WhatsApp."
+      );
 
+      setEtapa(1);
+      setSelectedHora("");
+      setSelectedBarbeiroId("");
       setTelefone("");
       setServicosSelecionados([]);
-      setSelectedHora("");
-
-      void buscarHorarios(selectedDate, selectedBarbeiroId);
+      setJaBuscou(false);
+      setHorarios([]);
     } catch {
       setMensagemErro("Erro ao enviar agendamento.");
     } finally {
@@ -268,127 +295,252 @@ export default function Agendar() {
   return (
     <div className="min-h-screen bg-[#140000] text-white p-4">
       <div className="max-w-xl mx-auto space-y-6">
-        <h1 className="text-4xl font-bold text-center text-[#D9A66A]">
-          Agendar Horário
-        </h1>
+        <div className="text-center space-y-2">
+          <h1 className="text-4xl font-bold text-[#D9A66A]">
+            Agendar Horário
+          </h1>
 
-        <p className="text-center text-sm text-[#E8C8A3]">
-          Logado como: {user.displayName || user.email}
-        </p>
+          <p className="text-sm text-[#E8C8A3]">
+            Logado como: {user.displayName || user.email}
+          </p>
+        </div>
 
-        <select
-          value={selectedBarbeiroId}
-          onChange={(e) => setSelectedBarbeiroId(e.target.value)}
-          className="w-full p-3 rounded bg-[#1b0402] border border-[#6e2317]"
-        >
-          <option value="">Selecione um barbeiro</option>
-          {barbeiros.map((barbeiro) => (
-            <option key={barbeiro.id} value={barbeiro.id}>
-              {barbeiro.nome}
-            </option>
-          ))}
-        </select>
-
-        <input
-          type="date"
-          min={dataHoje}
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          className="w-full p-3 rounded bg-[#1b0402] border border-[#6e2317]"
-        />
-
-        <p className="text-xs text-[#E8C8A3]">
-          Data selecionada: {dataParaExibicao}
-        </p>
-
-        <div className="space-y-3">
-          <p className="text-[#D9A66A] font-semibold">Horários disponíveis</p>
-
-          {loading && (
-            <p className="text-gray-300 text-sm">Carregando horários…</p>
-          )}
-
-          {!loading && jaBuscou && horarios.length === 0 && (
-            <p className="text-gray-400 text-sm">
-              Nenhum horário disponível para esta data.
-            </p>
-          )}
-
-          {!loading && horarios.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {horarios.map((h) => (
-                <button
-                  key={h}
-                  onClick={() => setSelectedHora(h)}
-                  className={
-                    "px-4 py-2 rounded-full border " +
-                    (selectedHora === h
-                      ? "bg-[#D9A66A] text-black"
-                      : "bg-[#1b0402] border-[#6e2317] text-[#E8C8A3]")
-                  }
-                >
-                  {h}
-                </button>
-              ))}
+        <div className="grid grid-cols-3 gap-2">
+          {[1, 2, 3].map((n) => (
+            <div
+              key={n}
+              className={cn(
+                "rounded-full py-2 text-center text-sm font-bold border",
+                etapa === n
+                  ? "bg-[#D9A66A] text-black border-[#D9A66A]"
+                  : "bg-[#1b0402] text-[#E8C8A3] border-[#6e2317]"
+              )}
+            >
+              {n}
             </div>
-          )}
+          ))}
         </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          {servicos.map((servico) => {
-            const selecionado = servicosSelecionados.includes(servico);
-
-            return (
-              <label
-                key={servico}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg border p-3 cursor-pointer",
-                  selecionado
-                    ? "border-[#D9A66A] bg-[#26100d]"
-                    : "border-[#6e2317] bg-[#1b0402]"
-                )}
-              >
-                <Checkbox
-                  checked={selecionado}
-                  onCheckedChange={() => toggleServico(servico)}
-                />
-                <span>{servico}</span>
-              </label>
-            );
-          })}
-        </div>
-
-        <input
-          type="text"
-          placeholder="Seu nome"
-          value={cliente}
-          onChange={(e) => setCliente(e.target.value)}
-          className="w-full p-3 rounded bg-[#1b0402] border border-[#6e2317]"
-        />
-
-        <input
-          type="tel"
-          placeholder="Telefone com DDD"
-          value={telefone}
-          onChange={(e) => setTelefone(e.target.value)}
-          className="w-full p-3 rounded bg-[#1b0402] border border-[#6e2317]"
-        />
 
         {mensagemErro && (
           <p className="text-red-400 text-center">{mensagemErro}</p>
         )}
 
         {mensagemSucesso && (
-          <p className="text-green-400 text-center">{mensagemSucesso}</p>
+          <div className="rounded-xl border border-green-700 bg-green-950/40 p-4 text-green-300 text-center font-semibold">
+            {mensagemSucesso}
+          </div>
         )}
 
-        <button
-          onClick={confirmarAgendamento}
-          disabled={loading || submitting}
-          className="btn-retro w-full"
-        >
-          {submitting ? "Enviando…" : "Confirmar Agendamento"}
-        </button>
+        {etapa === 1 && (
+          <div className="space-y-4 rounded-2xl border border-[#6e2317] bg-[#1b0402] p-5">
+            <h2 className="text-2xl font-bold text-[#D9A66A]">
+              Escolha o dia
+            </h2>
+
+            <input
+              type="date"
+              min={dataHoje}
+              value={selectedDate}
+              onChange={(e) => {
+                setSelectedDate(e.target.value);
+                setSelectedHora("");
+                setHorarios([]);
+                setJaBuscou(false);
+              }}
+              className="w-full p-3 rounded bg-[#140000] border border-[#6e2317]"
+            />
+
+            <p className="text-xs text-[#E8C8A3]">
+              Data selecionada: {dataParaExibicao}
+            </p>
+
+            <button
+              onClick={() => {
+                setMensagemErro("");
+                setEtapa(2);
+              }}
+              className="btn-retro w-full"
+            >
+              Próximo
+            </button>
+          </div>
+        )}
+
+        {etapa === 2 && (
+          <div className="space-y-5 rounded-2xl border border-[#6e2317] bg-[#1b0402] p-5">
+            <h2 className="text-2xl font-bold text-[#D9A66A]">
+              Escolha o barbeiro e horário
+            </h2>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              {barbeiros.map((barbeiro) => (
+                <button
+                  key={barbeiro.id}
+                  onClick={() => {
+                    setSelectedBarbeiroId(barbeiro.id);
+                    setMensagemErro("");
+                  }}
+                  className={cn(
+                    "rounded-xl border p-3 text-center space-y-2",
+                    selectedBarbeiroId === barbeiro.id
+                      ? "border-[#D9A66A] bg-[#26100d]"
+                      : "border-[#6e2317] bg-[#140000]"
+                  )}
+                >
+                  <img
+                    src={barbeiro.foto}
+                    alt={barbeiro.nome}
+                    className="mx-auto h-20 w-20 rounded-full object-cover border border-[#D9A66A]/50"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+
+                  <div className="font-bold">{barbeiro.nome}</div>
+                </button>
+              ))}
+            </div>
+
+            {selectedBarbeiroId && (
+              <div className="space-y-3">
+                <p className="text-[#D9A66A] font-semibold">
+                  Horários disponíveis
+                </p>
+
+                {loading && (
+                  <p className="text-gray-300 text-sm">Carregando horários…</p>
+                )}
+
+                {!loading && jaBuscou && horarios.length === 0 && (
+                  <p className="text-gray-400 text-sm">
+                    Nenhum horário disponível para esta data.
+                  </p>
+                )}
+
+                {!loading && horarios.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {horarios.map((h) => (
+                      <button
+                        key={h}
+                        onClick={() => setSelectedHora(h)}
+                        className={
+                          "px-4 py-2 rounded-full border " +
+                          (selectedHora === h
+                            ? "bg-[#D9A66A] text-black"
+                            : "bg-[#140000] border-[#6e2317] text-[#E8C8A3]")
+                        }
+                      >
+                        {h}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setEtapa(1)}
+                className="rounded-xl border border-[#6e2317] py-3 font-semibold"
+              >
+                Voltar
+              </button>
+
+              <button
+                onClick={() => {
+                  if (!selectedBarbeiroId) {
+                    setMensagemErro("Selecione um barbeiro.");
+                    return;
+                  }
+
+                  if (!selectedHora) {
+                    setMensagemErro("Escolha um horário.");
+                    return;
+                  }
+
+                  setMensagemErro("");
+                  setEtapa(3);
+                }}
+                className="btn-retro w-full"
+              >
+                Próximo
+              </button>
+            </div>
+          </div>
+        )}
+
+        {etapa === 3 && (
+          <div className="space-y-5 rounded-2xl border border-[#6e2317] bg-[#1b0402] p-5">
+            <h2 className="text-2xl font-bold text-[#D9A66A]">
+              Serviço e contato
+            </h2>
+
+            <div className="rounded-xl border border-[#6e2317] bg-[#140000] p-3 text-sm text-[#E8C8A3]">
+              {dataParaExibicao} às {selectedHora}
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {servicos.map((servico) => {
+                const selecionado = servicosSelecionados.includes(servico);
+
+                return (
+                  <label
+                    key={servico}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg border p-3 cursor-pointer",
+                      selecionado
+                        ? "border-[#D9A66A] bg-[#26100d]"
+                        : "border-[#6e2317] bg-[#140000]"
+                    )}
+                  >
+                    <Checkbox
+                      checked={selecionado}
+                      onCheckedChange={() => toggleServico(servico)}
+                    />
+                    <span>{servico}</span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <input
+              type="text"
+              placeholder="Seu nome"
+              value={cliente}
+              onChange={(e) => setCliente(e.target.value)}
+              className="w-full p-3 rounded bg-[#140000] border border-[#6e2317]"
+            />
+
+            <input
+              type="tel"
+              placeholder="Telefone com DDD"
+              value={telefone}
+              onChange={(e) => setTelefone(formatarTelefone(e.target.value))}
+              className="w-full p-3 rounded bg-[#140000] border border-[#6e2317]"
+            />
+
+            <p className="text-xs text-[#E8C8A3]">
+              Exemplo: (11) 94700-6358
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setEtapa(2)}
+                className="rounded-xl border border-[#6e2317] py-3 font-semibold"
+              >
+                Voltar
+              </button>
+
+              <button
+                onClick={confirmarAgendamento}
+                disabled={loading || submitting}
+                className="btn-retro w-full"
+              >
+                {submitting ? "Enviando…" : "Solicitar Agendamento"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
