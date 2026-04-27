@@ -9,6 +9,15 @@ import {
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
+function getMensagemErro(payload: any) {
+  if (!payload) return "Erro inesperado.";
+  if (typeof payload === "string") return payload;
+  if (typeof payload?.mensagem === "string") return payload.mensagem;
+  if (typeof payload?.erro === "string") return payload.erro;
+  if (typeof payload?.message === "string") return payload.message;
+  return "Erro inesperado.";
+}
+
 const formatDatePtBr = (date: Date) =>
   date.toLocaleDateString("pt-BR", {
     day: "2-digit",
@@ -34,7 +43,6 @@ export default function Agendar() {
   ]);
 
   const [selectedBarbeiroId, setSelectedBarbeiroId] = useState<string>("");
-
   const [horarios, setHorarios] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [jaBuscou, setJaBuscou] = useState(false);
@@ -43,9 +51,7 @@ export default function Agendar() {
   const [selectedHora, setSelectedHora] = useState("");
   const [cliente, setCliente] = useState("");
   const [telefone, setTelefone] = useState("");
-  const [servicosSelecionados, setServicosSelecionados] = useState<string[]>(
-    []
-  );
+  const [servicosSelecionados, setServicosSelecionados] = useState<string[]>([]);
   const [mensagemErro, setMensagemErro] = useState("");
   const [mensagemSucesso, setMensagemSucesso] = useState("");
 
@@ -113,15 +119,20 @@ export default function Agendar() {
           encodeURIComponent(barbeiroId);
 
         const res = await fetch(url, { cache: "no-store" });
-        const json = await res.json();
+
+        const contentType = res.headers.get("content-type") || "";
+
+        const payload = contentType.includes("application/json")
+          ? await res.json()
+          : await res.text();
 
         if (!res.ok) {
-          setMensagemErro(json?.erro || "Erro ao buscar horários.");
+          setMensagemErro(getMensagemErro(payload));
           setHorarios([]);
           return;
         }
 
-        const lista = Array.isArray(json) ? json : [];
+        const lista = Array.isArray(payload) ? payload : [];
         setHorarios(lista);
       } catch {
         setMensagemErro("Erro ao buscar horários.");
@@ -160,12 +171,7 @@ export default function Agendar() {
       return;
     }
 
-    if (
-      !cliente ||
-      !telefone ||
-      !servicosSelecionados.length ||
-      !selectedHora
-    ) {
+    if (!cliente || !telefone || !servicosSelecionados.length || !selectedHora) {
       setMensagemErro("Preencha todos os campos.");
       return;
     }
@@ -175,9 +181,7 @@ export default function Agendar() {
     setMensagemSucesso("");
 
     try {
-      const url = API_URL + "/agendar";
-
-      const res = await fetch(url, {
+      const res = await fetch(API_URL + "/agendar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -190,25 +194,24 @@ export default function Agendar() {
         }),
       });
 
-const contentType = res.headers.get("content-type") || "";
+      const contentType = res.headers.get("content-type") || "";
 
-const payload = contentType.includes("application/json")
-  ? await res.json()
-  : await res.text();
+      const payload = contentType.includes("application/json")
+        ? await res.json()
+        : await res.text();
 
-if (!res.ok) {
-  setMensagemErro(getMensagemErro(payload));
-  return;
-}
+      if (!res.ok) {
+        setMensagemErro(getMensagemErro(payload));
+        return;
+      }
 
-// 👉 sucesso independente de "status"
-setMensagemSucesso("Agendamento enviado com sucesso!");
+      setMensagemSucesso("Agendamento enviado com sucesso!");
 
-setTelefone("");
-setServicosSelecionados([]);
-setSelectedHora("");
+      setTelefone("");
+      setServicosSelecionados([]);
+      setSelectedHora("");
 
-void buscarHorarios(selectedDate, selectedBarbeiroId);
+      void buscarHorarios(selectedDate, selectedBarbeiroId);
     } catch {
       setMensagemErro("Erro ao enviar agendamento.");
     } finally {
@@ -231,6 +234,7 @@ void buscarHorarios(selectedDate, selectedBarbeiroId);
           <h1 className="text-3xl font-bold text-[#D9A66A]">
             Agendar Horário
           </h1>
+
           <p className="text-sm text-[#E8C8A3]">
             Entre com sua conta Google para continuar.
           </p>
@@ -322,11 +326,12 @@ void buscarHorarios(selectedDate, selectedBarbeiroId);
         <div className="grid gap-3 sm:grid-cols-2">
           {servicos.map((servico) => {
             const selecionado = servicosSelecionados.includes(servico);
+
             return (
               <label
                 key={servico}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg border p-3",
+                  "flex items-center gap-3 rounded-lg border p-3 cursor-pointer",
                   selecionado
                     ? "border-[#D9A66A] bg-[#26100d]"
                     : "border-[#6e2317] bg-[#1b0402]"
@@ -361,6 +366,7 @@ void buscarHorarios(selectedDate, selectedBarbeiroId);
         {mensagemErro && (
           <p className="text-red-400 text-center">{mensagemErro}</p>
         )}
+
         {mensagemSucesso && (
           <p className="text-green-400 text-center">{mensagemSucesso}</p>
         )}
