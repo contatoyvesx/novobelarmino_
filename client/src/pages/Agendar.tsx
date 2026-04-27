@@ -12,10 +12,20 @@ import { auth } from "@/lib/firebase";
 function getMensagemErro(payload: any) {
   if (!payload) return "Erro inesperado.";
   if (typeof payload === "string") return payload;
+
   if (typeof payload?.mensagem === "string") return payload.mensagem;
   if (typeof payload?.erro === "string") return payload.erro;
   if (typeof payload?.message === "string") return payload.message;
-  return "Erro inesperado.";
+
+  if (Array.isArray(payload?.errors)) {
+    return payload.errors.map((e: any) => e.message || e).join(", ");
+  }
+
+  if (Array.isArray(payload?.issues)) {
+    return payload.issues.map((e: any) => e.message || e).join(", ");
+  }
+
+  return JSON.stringify(payload);
 }
 
 const formatDatePtBr = (date: Date) =>
@@ -43,6 +53,7 @@ export default function Agendar() {
   ]);
 
   const [selectedBarbeiroId, setSelectedBarbeiroId] = useState<string>("");
+
   const [horarios, setHorarios] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [jaBuscou, setJaBuscou] = useState(false);
