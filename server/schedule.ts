@@ -114,12 +114,12 @@ function removerOcupados(
 
 function horariosRoute(app: Express) {
   app.get("/api/horarios", async (req: Request, res: Response) => {
-   const data = String(req.query.data);
-const barbeiro_id = String(req.query.barbeiro_id);
+    const data = String(req.query.data);
+    const barbeiro_id = String(req.query.barbeiro_id);
 
-if (!data || !barbeiro_id) {
-  return res.status(400).json({ erro: "faltando parametros" });
-}
+    if (!data || !barbeiro_id) {
+      return res.status(400).json({ erro: "faltando parametros" });
+    }
 
     try {
       const config = await carregarConfigAgenda(barbeiro_id, data);
@@ -150,16 +150,16 @@ function agendarRoute(app: Express) {
   app.use(express.json());
 
   app.post("/api/agendar", async (req: Request, res: Response) => {
-   console.log("BODY RECEBIDO:", req.body);
+    console.log("BODY RECEBIDO:", req.body);
 
-const parsed = novoAgendamentoSchema.safeParse(req.body);
+    const parsed = novoAgendamentoSchema.safeParse(req.body);
 
-if (!parsed.success) {
-  console.log("ERRO VALIDACAO:", parsed.error);
-  return res.status(400).json({
-    erro: parsed.error,
-  });
-}
+    if (!parsed.success) {
+      console.log("ERRO VALIDACAO:", parsed.error);
+      return res.status(400).json({
+        erro: parsed.error,
+      });
+    }
 
     const { data, hora, barbeiro_id, cliente, telefone, servico } = parsed.data;
 
@@ -202,11 +202,14 @@ if (!parsed.success) {
           ${data},
           ${inicio},
           ${fim},
-          'pendente'
+          'confirmado'
         )
       `;
 
-      res.status(201).json({ status: "confirmado" });
+      res.status(201).json({
+        mensagem: "Agendamento confirmado com sucesso",
+        status: "confirmado",
+      });
     } catch (e: any) {
       res.status(500).json({
         mensagem: "Erro ao confirmar.",
