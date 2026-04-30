@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   CheckCircle2,
-  Clock,
   History,
   LayoutDashboard,
   LogOut,
@@ -17,8 +16,8 @@ import AgendaVisual from "@/components/AgendaVisual";
 
 const API = import.meta.env.VITE_API_URL || "/api";
 
-type Aba = "dashboard" | "pendentes" | "agenda" | "historico";
-type Status = "pendente" | "confirmado" | "cancelado";
+type Aba = "dashboard" | "agenda" | "historico";
+type Status = "confirmado" | "cancelado";
 
 type Agendamento = {
   id: number;
@@ -114,8 +113,6 @@ export default function Admin() {
 
   const [barbeiros, setBarbeiros] = useState<Barbeiro[]>([]);
   const [agenda, setAgenda] = useState<Agendamento[]>([]);
-  const [pendentes, setPendentes] = useState<Agendamento[]>([]);
-
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState<number | null>(null);
   const [erro, setErro] = useState("");
@@ -132,7 +129,6 @@ export default function Admin() {
     setToken("");
     setBarbeiroId("");
     setAgenda([]);
-    setPendentes([]);
   }, []);
 
   const headers = useMemo(
@@ -169,33 +165,6 @@ export default function Admin() {
     }
   }, [token, headers, logout, barbeiroId]);
 
-  const carregarPendentes = useCallback(async () => {
-    if (!token) return;
-
-    try {
-      const res = await fetch(`${API}/admin/pendentes`, { headers });
-      const payload = await res.json().catch(() => ({}));
-
-      if (res.status === 401) {
-        logout();
-        return;
-      }
-
-      if (!res.ok) {
-        setPendentes([]);
-        return;
-      }
-
-      const lista = Array.isArray(payload)
-        ? payload
-        : payload.pendentes || payload.agendamentos || [];
-
-      setPendentes(lista);
-    } catch {
-      setPendentes([]);
-    }
-  }, [token, headers, logout]);
-
   const carregarAgenda = useCallback(async () => {
     if (!token || !barbeiroId) return;
 
@@ -221,14 +190,13 @@ export default function Admin() {
       if (!res.ok) throw new Error(getMensagem(payload));
 
       setAgenda(payload.agendamentos || []);
-      await carregarPendentes();
     } catch (e: any) {
       setErro(e.message || "Erro ao carregar agenda.");
       setAgenda([]);
     } finally {
       setLoading(false);
     }
-  }, [token, barbeiroId, data, headers, logout, carregarPendentes]);
+  }, [token, barbeiroId, data, headers, logout]);
 
   async function atualizarStatus(id: number, status: Status) {
     setSavingId(id);
@@ -271,14 +239,9 @@ export default function Admin() {
 
       if (!funcionou) throw new Error(ultimaMensagem || "Erro ao atualizar status.");
 
-      setSucesso(
-        status === "confirmado"
-          ? "Agendamento confirmado."
-          : "Agendamento cancelado."
-      );
+      setSucesso(status === "cancelado" ? "Agendamento cancelado." : "Agendamento confirmado.");
 
       await carregarAgenda();
-      await carregarPendentes();
     } catch (e: any) {
       setErro(e.message || "Erro ao atualizar status.");
     } finally {
@@ -289,8 +252,7 @@ export default function Admin() {
   useEffect(() => {
     if (!token) return;
     carregarBarbeiros();
-    carregarPendentes();
-  }, [token, carregarBarbeiros, carregarPendentes]);
+  }, [token, carregarBarbeiros]);
 
   useEffect(() => {
     if (!token || !barbeiroId) return;
@@ -302,19 +264,10 @@ export default function Admin() {
     [agenda]
   );
 
-  const pendentesOrdenados = useMemo(
-    () =>
-      [...pendentes].sort((a, b) => {
-        if (a.data !== b.data) return a.data.localeCompare(b.data);
-        return a.inicio.localeCompare(b.inicio);
-      }),
-    [pendentes]
-  );
-
   const historico = useMemo(
     () =>
       [...agendaOrdenada]
-        .filter((a) => a.status !== "pendente")
+        .filter((a) => a.status === "cancelado")
         .sort((a, b) => {
           if (a.data !== b.data) return b.data.localeCompare(a.data);
           return b.inicio.localeCompare(a.inicio);
@@ -337,7 +290,7 @@ export default function Admin() {
           <div>
             <h1 className="text-3xl font-black">Belarmino Admin</h1>
             <p className="text-sm text-white/60">
-              Dashboard simples para controlar os agendamentos.
+              Agendamentos entram direto como confirmados.
             </p>
           </div>
 
@@ -394,14 +347,6 @@ export default function Admin() {
           </TabButton>
 
           <TabButton
-            ativo={aba === "pendentes"}
-            onClick={() => setAba("pendentes")}
-            icon={<Clock size={16} />}
-          >
-            Pendentes
-          </TabButton>
-
-          <TabButton
             ativo={aba === "agenda"}
             onClick={() => setAba("agenda")}
             icon={<CalendarDays size={16} />}
@@ -414,7 +359,7 @@ export default function Admin() {
             onClick={() => setAba("historico")}
             icon={<History size={16} />}
           >
-            Histórico
+            Cancelados
           </TabButton>
         </nav>
 
@@ -432,86 +377,34 @@ export default function Admin() {
 
         {aba === "dashboard" && (
           <>
-            <section className="mb-5 grid gap-4 md:grid-cols-4">
-              <Card titulo="Pendentes" valor={pendentesOrdenados.length} tipo="pendente" />
+            <section className="mb-5 grid gap-4 md:grid-cols-3">
               <Card titulo="Hoje" valor={doDia.length} tipo="normal" />
               <Card titulo="Confirmados" valor={confirmados.length} tipo="confirmado" />
               <Card titulo="Cancelados" valor={cancelados.length} tipo="cancelado" />
             </section>
 
-            <section className="grid gap-5 lg:grid-cols-2">
-              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-                <div className="mb-4 flex items-center gap-2">
-                  <Clock size={20} className="text-amber-300" />
-                  <h2 className="text-2xl font-black">Próximos de hoje</h2>
-                </div>
-
-                {doDia.length === 0 ? (
-                  <Empty texto="Nenhum agendamento para o dia selecionado." />
-                ) : (
-                  <div className="grid gap-3">
-                    {doDia.slice(0, 6).map((a) => (
-                      <AgendamentoLinha
-                        key={a.id}
-                        agendamento={a}
-                        saving={savingId === a.id}
-                        onConfirmar={() => atualizarStatus(a.id, "confirmado")}
-                        onCancelar={() => atualizarStatus(a.id, "cancelado")}
-                      />
-                    ))}
-                  </div>
-                )}
+            <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <Scissors size={20} className="text-amber-300" />
+                <h2 className="text-2xl font-black">Agendamentos de hoje</h2>
               </div>
 
-              <div className="rounded-3xl border border-amber-500/20 bg-amber-500/[0.07] p-5">
-                <div className="mb-4 flex items-center gap-2">
-                  <Scissors size={20} className="text-amber-300" />
-                  <h2 className="text-2xl font-black">Pendências rápidas</h2>
+              {doDia.length === 0 ? (
+                <Empty texto="Nenhum agendamento para o dia selecionado." />
+              ) : (
+                <div className="grid gap-3">
+                  {doDia.map((a) => (
+                    <AgendamentoLinha
+                      key={a.id}
+                      agendamento={a}
+                      saving={savingId === a.id}
+                      onCancelar={() => atualizarStatus(a.id, "cancelado")}
+                    />
+                  ))}
                 </div>
-
-                {pendentesOrdenados.length === 0 ? (
-                  <Empty texto="Nenhum agendamento pendente." />
-                ) : (
-                  <div className="grid gap-3">
-                    {pendentesOrdenados.slice(0, 5).map((p) => (
-                      <AgendamentoLinha
-                        key={p.id}
-                        agendamento={p}
-                        saving={savingId === p.id}
-                        onConfirmar={() => atualizarStatus(p.id, "confirmado")}
-                        onCancelar={() => atualizarStatus(p.id, "cancelado")}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
+              )}
             </section>
           </>
-        )}
-
-        {aba === "pendentes" && (
-          <section className="rounded-3xl border border-amber-500/20 bg-amber-500/[0.07] p-5">
-            <div className="mb-4 flex items-center gap-2">
-              <Clock size={20} className="text-amber-300" />
-              <h2 className="text-2xl font-black">Pendentes</h2>
-            </div>
-
-            {pendentesOrdenados.length === 0 ? (
-              <Empty texto="Nenhum agendamento pendente." />
-            ) : (
-              <div className="grid gap-3 lg:grid-cols-2">
-                {pendentesOrdenados.map((p) => (
-                  <AgendamentoCard
-                    key={p.id}
-                    agendamento={p}
-                    saving={savingId === p.id}
-                    onConfirmar={() => atualizarStatus(p.id, "confirmado")}
-                    onCancelar={() => atualizarStatus(p.id, "cancelado")}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
         )}
 
         {aba === "agenda" && (
@@ -533,11 +426,11 @@ export default function Admin() {
           <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
             <div className="mb-4 flex items-center gap-2">
               <History size={20} />
-              <h2 className="text-2xl font-black">Histórico</h2>
+              <h2 className="text-2xl font-black">Cancelados</h2>
             </div>
 
             {historico.length === 0 ? (
-              <Empty texto="Nenhum corte finalizado ou cancelado nesta data." />
+              <Empty texto="Nenhum agendamento cancelado nesta data." />
             ) : (
               <div className="grid gap-3 lg:grid-cols-2">
                 {historico.map((a) => (
@@ -545,7 +438,6 @@ export default function Admin() {
                     key={a.id}
                     agendamento={a}
                     saving={savingId === a.id}
-                    onConfirmar={() => atualizarStatus(a.id, "confirmado")}
                     onCancelar={() => atualizarStatus(a.id, "cancelado")}
                   />
                 ))}
@@ -591,16 +483,14 @@ function Card({
 }: {
   titulo: string;
   valor: number;
-  tipo: "pendente" | "confirmado" | "cancelado" | "normal";
+  tipo: "confirmado" | "cancelado" | "normal";
 }) {
   const cor =
-    tipo === "pendente"
-      ? "border-amber-500/20 bg-amber-500/10 text-amber-300"
-      : tipo === "confirmado"
-        ? "border-green-500/20 bg-green-500/10 text-green-300"
-        : tipo === "cancelado"
-          ? "border-red-500/20 bg-red-500/10 text-red-300"
-          : "border-white/10 bg-white/[0.04] text-white";
+    tipo === "confirmado"
+      ? "border-green-500/20 bg-green-500/10 text-green-300"
+      : tipo === "cancelado"
+        ? "border-red-500/20 bg-red-500/10 text-red-300"
+        : "border-white/10 bg-white/[0.04] text-white";
 
   return (
     <div className={`rounded-3xl border p-5 ${cor}`}>
@@ -620,11 +510,9 @@ function Empty({ texto }: { texto: string }) {
 
 function StatusBadge({ status }: { status: Status }) {
   const cor =
-    status === "pendente"
-      ? "bg-amber-500/15 text-amber-300"
-      : status === "confirmado"
-        ? "bg-green-500/15 text-green-300"
-        : "bg-red-500/15 text-red-300";
+    status === "confirmado"
+      ? "bg-green-500/15 text-green-300"
+      : "bg-red-500/15 text-red-300";
 
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${cor}`}>
@@ -636,26 +524,25 @@ function StatusBadge({ status }: { status: Status }) {
 function AgendamentoLinha({
   agendamento,
   saving,
-  onConfirmar,
   onCancelar,
 }: {
   agendamento: Agendamento;
   saving: boolean;
-  onConfirmar: () => void;
   onCancelar: () => void;
 }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-<div className="font-black">
-  {formatData(agendamento.data)} às {formatHora(agendamento.inicio)} — {agendamento.cliente}
-</div>
+          <div className="font-black">
+            {formatData(agendamento.data)} às {formatHora(agendamento.inicio)} —{" "}
+            {agendamento.cliente}
+          </div>
 
-<div className="mt-1 text-sm text-white/60">
-  {agendamento.servico}
-  {agendamento.barbeiro_nome ? ` • ${agendamento.barbeiro_nome}` : ""}
-</div>
+          <div className="mt-1 text-sm text-white/60">
+            {agendamento.servico}
+            {agendamento.barbeiro_nome ? ` • ${agendamento.barbeiro_nome}` : ""}
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -671,24 +558,14 @@ function AgendamentoLinha({
             WhatsApp
           </a>
 
-          {agendamento.status === "pendente" && (
-            <>
-              <button
-                onClick={onConfirmar}
-                disabled={saving}
-                className="rounded-xl border border-green-500/30 bg-green-500/10 px-3 py-2 text-xs font-black text-green-300 disabled:opacity-50"
-              >
-                Confirmar
-              </button>
-
-              <button
-                onClick={onCancelar}
-                disabled={saving}
-                className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-black text-red-300 disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-            </>
+          {agendamento.status !== "cancelado" && (
+            <button
+              onClick={onCancelar}
+              disabled={saving}
+              className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-black text-red-300 disabled:opacity-50"
+            >
+              Cancelar
+            </button>
           )}
         </div>
       </div>
@@ -699,12 +576,10 @@ function AgendamentoLinha({
 function AgendamentoCard({
   agendamento,
   saving,
-  onConfirmar,
   onCancelar,
 }: {
   agendamento: Agendamento;
   saving: boolean;
-  onConfirmar: () => void;
   onCancelar: () => void;
 }) {
   return (
@@ -740,7 +615,7 @@ function AgendamentoCard({
         )}
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
         <a
           href={whatsappLink(agendamento.telefone)}
           target="_blank"
@@ -751,23 +626,16 @@ function AgendamentoCard({
           WhatsApp
         </a>
 
-        <button
-          onClick={onConfirmar}
-          disabled={saving}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm font-black text-green-300 disabled:opacity-50"
-        >
-          <CheckCircle2 size={16} />
-          Confirmar
-        </button>
-
-        <button
-          onClick={onCancelar}
-          disabled={saving}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-black text-red-300 disabled:opacity-50"
-        >
-          <XCircle size={16} />
-          Cancelar
-        </button>
+        {agendamento.status !== "cancelado" && (
+          <button
+            onClick={onCancelar}
+            disabled={saving}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-black text-red-300 disabled:opacity-50"
+          >
+            <XCircle size={16} />
+            Cancelar
+          </button>
+        )}
       </div>
     </div>
   );
