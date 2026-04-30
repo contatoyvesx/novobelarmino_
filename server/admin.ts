@@ -33,6 +33,38 @@ export function registrarRotasAdmin(app: Express) {
     }
   });
 
+  app.get("/api/admin/agendamentos-hoje", async (req: Request, res: Response) => {
+    if (!auth(req)) return res.status(401).json({ mensagem: "Não autorizado" });
+
+    try {
+      const agendamentos = await sql`
+        select
+          a.id,
+          a.cliente,
+          a.telefone,
+          a.servico,
+          a.data,
+          a.inicio,
+          a.fim,
+          a.status,
+          a.barbeiro_id,
+          b.nome as barbeiro_nome
+        from agendamentos a
+        left join barbeiros b on b.id = a.barbeiro_id
+        where a.status = 'confirmado'
+          and a.data = CURRENT_DATE
+        order by a.inicio asc
+      `;
+
+      res.json({ agendamentos });
+    } catch (e: any) {
+      res.status(500).json({
+        mensagem: "Erro ao listar agendamentos de hoje",
+        detalhe: e?.message,
+      });
+    }
+  });
+
   app.get("/api/admin/pendentes", async (req: Request, res: Response) => {
     if (!auth(req)) return res.status(401).json({ mensagem: "Não autorizado" });
 
@@ -51,14 +83,14 @@ export function registrarRotasAdmin(app: Express) {
           b.nome as barbeiro_nome
         from agendamentos a
         left join barbeiros b on b.id = a.barbeiro_id
-        where a.status = 'pendente'
+        where a.status = 'confirmado'
         order by a.data asc, a.inicio asc
       `;
 
       res.json({ pendentes });
     } catch (e: any) {
       res.status(500).json({
-        mensagem: "Erro ao listar pendentes",
+        mensagem: "Erro ao listar agendamentos",
         detalhe: e?.message,
       });
     }
@@ -115,7 +147,7 @@ export function registrarRotasAdmin(app: Express) {
       return res.status(400).json({ mensagem: "status obrigatório" });
     }
 
-    const permitidos = ["pendente", "confirmado", "cancelado"];
+    const permitidos = ["confirmado", "cancelado"];
 
     if (!permitidos.includes(status)) {
       return res.status(400).json({ mensagem: "status inválido" });
@@ -154,7 +186,7 @@ export function registrarRotasAdmin(app: Express) {
         return res.status(400).json({ mensagem: "status obrigatório" });
       }
 
-      const permitidos = ["pendente", "confirmado", "cancelado"];
+      const permitidos = ["confirmado", "cancelado"];
 
       if (!permitidos.includes(status)) {
         return res.status(400).json({ mensagem: "status inválido" });
