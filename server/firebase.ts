@@ -1,12 +1,9 @@
 import admin from "firebase-admin";
+import serviceAccount from "./serviceAccountKey.json" assert { type: "json" };
 
 if (!admin.apps.length) {
   admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: "belarmino-3823b",
-      clientEmail: "COLOCA_AQUI_O_CLIENT_EMAIL",
-      privateKey: "COLOCA_AQUI_A_PRIVATE_KEY".replace(/\\n/g, "\n"),
-    }),
+    credential: admin.credential.cert(serviceAccount as any),
   });
 }
 
