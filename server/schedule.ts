@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import express from "express";
 import { novoAgendamentoSchema } from "./validation";
 import { sql } from "./supabase";
-import { auth } from "./firebase"; // 🔥 IMPORTANTE
+import { auth } from "./firebase";
 
 /* ================= TIPOS ================= */
 
@@ -29,7 +29,10 @@ const toHora = (m: number) =>
 
 /* ================= DB ================= */
 
-async function carregarConfigAgenda(barbeiroId: string, data: string): Promise<AgendaConfig> {
+async function carregarConfigAgenda(
+  barbeiroId: string,
+  data: string
+): Promise<AgendaConfig> {
   const [y, m, d] = data.split("-").map(Number);
   const diaSemana = new Date(y, m - 1, d).getDay();
 
@@ -48,35 +51,135 @@ async function carregarConfigAgenda(barbeiroId: string, data: string): Promise<A
   return config[0];
 }
 
+async function carregarAgendamentos(
+  data: string,
+  barbeiroId: string
+): Promise<Intervalo[]> {
+  return await sql<Intervalo[]>`
+    select inicio, fim
+    from agendamentos
+    where data = ${data}
+      and barbeiro_id = ${Number(barbeiroId)}
+      and status <> 'cancelado'
+  `;
+}
+
+async function carregarBloqueios(
+  data: string,
+  barbeiroId: string
+): Promise<Intervalo[]> {
+  return await sql<Intervalo[]>`
+    select inicio, fim
+    from bloqueios
+    where data = ${data}
+      and barbeiro_id = ${Number(barbeiroId)}
+  `;
+}
+
+/* ================= LÓGICA ================= */
+
+function gerarHorarios(config: AgendaConfig): string[] {
+  const horarios: string[] = [];
+
+  for (
+    let m = toMin(config.abre);
+    m + config.duracao <= toMin(config.fecha);
+    m += config.duracao
+  ) {
+    horarios.push(toHora(m));
+  }
+
+  return horarios;
+}
+
+function removerOcupados(
+  base: string[],
+  intervalos: Intervalo[],
+  passo: number
+) {
+  const ocupados = new Set(
+    intervalos.flatMap(({ inicio, fim }) => {
+      const result: string[] = [];
+
+      for (let m = toMin(inicio); m < toMin(fim); m += passo) {
+        result.push(toHora(m));
+      }
+
+      return result;
+    })
+  );
+
+  return base.filter((hora) => !ocupados.has(hora));
+}
+
 /* ================= ROTAS ================= */
+
+function horariosRoute(app: Express) {
+  app.get("/api/horarios", async (req: Request, res: Response) => {
+    const data = String(req.query.data || "");
+    const barbeiroId = String(req.query.barbeiro_id || "");
+
+    if (!data || !barbeiroId) {
+      return res.status(400).json({
+        mensagem: "Data e barbeiro_id são obrigatórios.",
+      });
+    }
+
+    try {
+      const config = await carregarConfigAgenda(barbeiroId, data);
+      const agendamentos = await carregarAgendamentos(data, barbeiroId);
+      const bloqueios = await carregarBloqueios(data, barbeiroId);
+
+      const base = gerarHorarios(config);
+      const semAgendamentos = removerOcupados(base, agendamentos, config.duracao);
+      const livres = removerOcupados(semAgendamentos, bloqueios, config.duracao);
+
+      return res.json(livres);
+    } catch (e: any) {
+      console.error("Erro em /api/horarios:", e);
+
+      return res.status(500).json({
+        mensagem: "Erro ao buscar horários.",
+        detalhe: e?.message,
+      });
+    }
+  });
+}
 
 function agendarRoute(app: Express) {
   app.use(express.json());
 
   app.post("/api/agendar", async (req: Request, res: Response) => {
+    const token = req.headers.authorization?.split("Bearer ")[1];
+
+    if (!token) {
+      return res.status(401).json({ mensagem: "Não autenticado" });
+    }
+
+    let userName = "Cliente";
+
     try {
-      // 🔐 1. PEGAR TOKEN
-      const token = req.headers.authorization?.split("Bearer ")[1];
-
-      if (!token) {
-        return res.status(401).json({ mensagem: "Não autenticado" });
-      }
-
-      // 🔐 2. VALIDAR TOKEN
       const decoded = await auth.verifyIdToken(token);
+      userName = decoded.name || decoded.email || "Cliente";
+    } catch (e: any) {
+      return res.status(401).json({
+        mensagem: "Token inválido",
+        detalhe: e?.message,
+      });
+    }
 
-      const userName = decoded.name || "Cliente";
+    const parsed = novoAgendamentoSchema.safeParse(req.body);
 
-      // 🔎 3. VALIDAR BODY
-      const parsed = novoAgendamentoSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        mensagem: "Dados inválidos.",
+        erro: parsed.error,
+      });
+    }
 
-      if (!parsed.success) {
-        return res.status(400).json({ erro: parsed.error });
-      }
+    const { data, hora, barbeiro_id, telefone, servico } = parsed.data;
 
-      const { data, hora, barbeiro_id, telefone, servico } = parsed.data;
-
-      // 🔧 4. LÓGICA NORMAL
+    try {
       const config = await carregarConfigAgenda(barbeiro_id, data);
       const inicio = hora;
       const fim = toHora(toMin(hora) + config.duracao);
@@ -97,7 +200,6 @@ function agendarRoute(app: Express) {
         });
       }
 
-      // 💾 5. SALVAR (nome vem do Google)
       await sql`
         insert into agendamentos (
           barbeiro_id,
@@ -125,8 +227,10 @@ function agendarRoute(app: Express) {
         usuario: userName,
       });
     } catch (e: any) {
-      return res.status(401).json({
-        mensagem: "Token inválido",
+      console.error("Erro em /api/agendar:", e);
+
+      return res.status(500).json({
+        mensagem: "Erro ao confirmar agendamento.",
         detalhe: e?.message,
       });
     }
@@ -136,5 +240,6 @@ function agendarRoute(app: Express) {
 /* ================= EXPORT ================= */
 
 export function registrarRotasDeAgenda(app: Express) {
+  horariosRoute(app);
   agendarRoute(app);
 }
