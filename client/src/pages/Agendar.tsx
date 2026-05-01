@@ -82,11 +82,11 @@ export default function Agendar() {
   return (
     <main className="min-h-screen bg-[#140000] text-white relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-b from-black via-[#1b0503] to-[#140000]" />
-      <div className="absolute -top-32 -right-24 w-96 h-96 bg-[#D9A66A]/10 rounded-full blur-3xl" />
-      <div className="absolute -bottom-32 -left-24 w-96 h-96 bg-[#6e2317]/30 rounded-full blur-3xl" />
+      <div className="absolute top-0 right-0 w-96 h-96 bg-[#D9A66A]/10 rounded-full blur-3xl" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-[#6e2317]/40 rounded-full blur-3xl" />
 
       <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-lg">
           <Link
             href="/"
             className="inline-flex mb-6 text-sm text-[#E8C8A3] hover:text-[#D9A66A]"
@@ -94,87 +94,104 @@ export default function Agendar() {
             ← Voltar para o site
           </Link>
 
-          <div className="rounded-3xl border border-[#D9A66A]/30 bg-[#2a0906]/80 backdrop-blur-xl shadow-2xl p-7">
-            <div className="flex flex-col items-center text-center mb-7">
+          <div className="rounded-[2rem] border border-[#D9A66A]/30 bg-[#2a0906]/90 backdrop-blur-xl shadow-2xl overflow-hidden">
+            <div className="bg-black/30 px-7 py-8 border-b border-[#D9A66A]/20 text-center">
               <img
                 src="/belarmino-logo.png"
                 alt="Belarmino Barbershop"
-                className="h-24 object-contain mb-4 drop-shadow-[0_0_20px_rgba(217,166,106,0.35)]"
+                className="h-28 mx-auto object-contain drop-shadow-[0_0_24px_rgba(217,166,106,0.45)]"
               />
 
-              <span className="text-xs uppercase tracking-[0.3em] text-[#D9A66A]">
+              <p className="mt-5 text-xs uppercase tracking-[0.35em] text-[#D9A66A]">
                 Agendamento Online
-              </span>
+              </p>
 
               <h1
-                className="text-3xl font-bold text-white mt-3"
+                className="text-3xl font-bold mt-3"
                 style={{ fontFamily: "'Playfair Display', serif" }}
               >
-                Reserve seu horário
+                Entre para agendar
               </h1>
 
-              <p className="text-sm text-[#E8C8A3]/80 mt-3 leading-relaxed">
-                Entre com sua conta Google para confirmar seu agendamento com segurança.
+              <p className="text-sm text-[#E8C8A3]/75 mt-3 leading-relaxed">
+                Use sua conta Google para confirmar seu horário de forma rápida e segura.
               </p>
             </div>
 
-            {!user ? (
-              <div className="space-y-5">
-                <div className="rounded-2xl border border-[#D9A66A]/20 bg-black/25 p-4">
-                  <p className="text-sm text-[#E8C8A3]">
-                    Seu nome será usado automaticamente no agendamento.
+            <div className="p-7">
+              {!user ? (
+                <div className="space-y-5">
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="rounded-2xl bg-black/25 border border-[#D9A66A]/15 p-3">
+                      <p className="text-lg">🔐</p>
+                      <p className="text-[11px] text-[#E8C8A3]/70 mt-1">Seguro</p>
+                    </div>
+
+                    <div className="rounded-2xl bg-black/25 border border-[#D9A66A]/15 p-3">
+                      <p className="text-lg">⚡</p>
+                      <p className="text-[11px] text-[#E8C8A3]/70 mt-1">Rápido</p>
+                    </div>
+
+                    <div className="rounded-2xl bg-black/25 border border-[#D9A66A]/15 p-3">
+                      <p className="text-lg">💈</p>
+                      <p className="text-[11px] text-[#E8C8A3]/70 mt-1">Belarmino</p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={login}
+                    className="w-full flex items-center justify-center gap-3 bg-white text-black py-4 rounded-2xl font-bold hover:scale-[1.02] active:scale-[0.98] transition shadow-lg"
+                  >
+                    <img
+                      src="https://www.svgrepo.com/show/475656/google-color.svg"
+                      alt="Google"
+                      className="h-5 w-5"
+                    />
+                    Continuar com Google
+                  </button>
+
+                  <p className="text-xs text-center text-[#E8C8A3]/50">
+                    Seu nome será usado apenas para identificar o agendamento.
                   </p>
                 </div>
+              ) : (
+                <div className="space-y-5">
+                  <div className="flex items-center gap-3 rounded-2xl border border-[#D9A66A]/20 bg-black/25 p-4">
+                    {user.photoURL && (
+                      <img
+                        src={user.photoURL}
+                        alt={user.displayName || "Usuário"}
+                        className="w-12 h-12 rounded-full"
+                      />
+                    )}
 
-                <button
-                  onClick={login}
-                  className="w-full flex items-center justify-center gap-3 bg-white text-black py-4 rounded-2xl font-bold hover:scale-[1.02] active:scale-[0.98] transition shadow-lg"
-                >
-                  <img
-                    src="https://www.svgrepo.com/show/475656/google-color.svg"
-                    alt="Google"
-                    className="h-5 w-5"
-                  />
-                  Entrar com Google
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-5">
-                <div className="flex items-center gap-3 rounded-2xl border border-[#D9A66A]/20 bg-black/25 p-4">
-                  {user.photoURL && (
-                    <img
-                      src={user.photoURL}
-                      alt={user.displayName || "Usuário"}
-                      className="w-12 h-12 rounded-full"
-                    />
-                  )}
-
-                  <div className="min-w-0">
-                    <p className="font-semibold text-white truncate">
-                      {user.displayName || "Usuário logado"}
-                    </p>
-                    <p className="text-xs text-[#E8C8A3]/70 truncate">
-                      {user.email}
-                    </p>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-white truncate">
+                        Logado como {user.displayName || "Cliente"}
+                      </p>
+                      <p className="text-xs text-[#E8C8A3]/70 truncate">
+                        {user.email}
+                      </p>
+                    </div>
                   </div>
+
+                  <button
+                    onClick={agendar}
+                    disabled={sending}
+                    className="w-full bg-[#D9A66A] text-[#140000] py-4 rounded-2xl font-bold hover:bg-[#E8C8A3] disabled:opacity-60 transition shadow-lg"
+                  >
+                    {sending ? "Confirmando..." : "Confirmar Agendamento"}
+                  </button>
+
+                  <button
+                    onClick={logout}
+                    className="w-full text-sm text-red-300 hover:text-red-200 transition"
+                  >
+                    Sair da conta Google
+                  </button>
                 </div>
-
-                <button
-                  onClick={agendar}
-                  disabled={sending}
-                  className="w-full bg-[#D9A66A] text-[#140000] py-4 rounded-2xl font-bold hover:bg-[#E8C8A3] disabled:opacity-60 transition shadow-lg"
-                >
-                  {sending ? "Confirmando..." : "Confirmar Agendamento"}
-                </button>
-
-                <button
-                  onClick={logout}
-                  className="w-full text-sm text-[#E8C8A3]/70 hover:text-white transition"
-                >
-                  Sair da conta
-                </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
