@@ -12,6 +12,12 @@ export default function Agendar() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [step, setStep] = useState<"login" | "form">("login");
+
+  const [telefone, setTelefone] = useState("");
+  const [servico, setServico] = useState("Corte");
+  const [data, setData] = useState("");
+  const [hora, setHora] = useState("");
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -32,10 +38,16 @@ export default function Agendar() {
 
   async function logout() {
     await signOut(auth);
+    setStep("login");
   }
 
   async function agendar() {
     if (!user) return;
+
+    if (!telefone || !servico || !data || !hora) {
+      alert("Preencha todos os campos.");
+      return;
+    }
 
     try {
       setSending(true);
@@ -50,17 +62,17 @@ export default function Agendar() {
         },
         body: JSON.stringify({
           barbeiro_id: 1,
-          data: "2026-05-10",
-          hora: "10:00",
-          telefone: "11999999999",
-          servico: "Corte",
+          data,
+          hora,
+          telefone,
+          servico,
         }),
       });
 
-      const data = await response.json();
+      const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(data?.mensagem || "Erro ao agendar.");
+        throw new Error(result?.mensagem || "Erro ao agendar.");
       }
 
       alert("Agendamento confirmado.");
@@ -110,34 +122,19 @@ export default function Agendar() {
                 className="text-3xl font-bold mt-3"
                 style={{ fontFamily: "'Playfair Display', serif" }}
               >
-                Entre para agendar
+                {user ? "Escolha seu horário" : "Entre para agendar"}
               </h1>
 
               <p className="text-sm text-[#E8C8A3]/75 mt-3 leading-relaxed">
-                Use sua conta Google para confirmar seu horário de forma rápida e segura.
+                {user
+                  ? "Preencha os dados abaixo para confirmar seu agendamento."
+                  : "Use sua conta Google para continuar com segurança."}
               </p>
             </div>
 
             <div className="p-7">
               {!user ? (
                 <div className="space-y-5">
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="rounded-2xl bg-black/25 border border-[#D9A66A]/15 p-3">
-                      <p className="text-lg">🔐</p>
-                      <p className="text-[11px] text-[#E8C8A3]/70 mt-1">Seguro</p>
-                    </div>
-
-                    <div className="rounded-2xl bg-black/25 border border-[#D9A66A]/15 p-3">
-                      <p className="text-lg">⚡</p>
-                      <p className="text-[11px] text-[#E8C8A3]/70 mt-1">Rápido</p>
-                    </div>
-
-                    <div className="rounded-2xl bg-black/25 border border-[#D9A66A]/15 p-3">
-                      <p className="text-lg">💈</p>
-                      <p className="text-[11px] text-[#E8C8A3]/70 mt-1">Belarmino</p>
-                    </div>
-                  </div>
-
                   <button
                     onClick={login}
                     className="w-full flex items-center justify-center gap-3 bg-white text-black py-4 rounded-2xl font-bold hover:scale-[1.02] active:scale-[0.98] transition shadow-lg"
@@ -154,7 +151,7 @@ export default function Agendar() {
                     Seu nome será usado apenas para identificar o agendamento.
                   </p>
                 </div>
-              ) : (
+              ) : step === "login" ? (
                 <div className="space-y-5">
                   <div className="flex items-center gap-3 rounded-2xl border border-[#D9A66A]/20 bg-black/25 p-4">
                     {user.photoURL && (
@@ -176,11 +173,10 @@ export default function Agendar() {
                   </div>
 
                   <button
-                    onClick={agendar}
-                    disabled={sending}
-                    className="w-full bg-[#D9A66A] text-[#140000] py-4 rounded-2xl font-bold hover:bg-[#E8C8A3] disabled:opacity-60 transition shadow-lg"
+                    onClick={() => setStep("form")}
+                    className="w-full bg-[#D9A66A] text-[#140000] py-4 rounded-2xl font-bold hover:bg-[#E8C8A3] transition shadow-lg"
                   >
-                    {sending ? "Confirmando..." : "Confirmar Agendamento"}
+                    Prosseguir para agendamento
                   </button>
 
                   <button
@@ -188,6 +184,54 @@ export default function Agendar() {
                     className="w-full text-sm text-red-300 hover:text-red-200 transition"
                   >
                     Sair da conta Google
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <input
+                    value={telefone}
+                    onChange={(e) => setTelefone(e.target.value)}
+                    placeholder="Telefone / WhatsApp"
+                    className="w-full rounded-xl bg-black/30 border border-[#D9A66A]/20 px-4 py-3 text-white outline-none"
+                  />
+
+                  <select
+                    value={servico}
+                    onChange={(e) => setServico(e.target.value)}
+                    className="w-full rounded-xl bg-black/30 border border-[#D9A66A]/20 px-4 py-3 text-white outline-none"
+                  >
+                    <option value="Corte">Corte</option>
+                    <option value="Barba">Barba</option>
+                    <option value="Corte + Barba">Corte + Barba</option>
+                  </select>
+
+                  <input
+                    type="date"
+                    value={data}
+                    onChange={(e) => setData(e.target.value)}
+                    className="w-full rounded-xl bg-black/30 border border-[#D9A66A]/20 px-4 py-3 text-white outline-none"
+                  />
+
+                  <input
+                    type="time"
+                    value={hora}
+                    onChange={(e) => setHora(e.target.value)}
+                    className="w-full rounded-xl bg-black/30 border border-[#D9A66A]/20 px-4 py-3 text-white outline-none"
+                  />
+
+                  <button
+                    onClick={agendar}
+                    disabled={sending}
+                    className="w-full bg-[#D9A66A] text-[#140000] py-4 rounded-2xl font-bold hover:bg-[#E8C8A3] disabled:opacity-60 transition shadow-lg"
+                  >
+                    {sending ? "Confirmando..." : "Confirmar horário"}
+                  </button>
+
+                  <button
+                    onClick={() => setStep("login")}
+                    className="w-full text-sm text-[#E8C8A3]/70 hover:text-white transition"
+                  >
+                    Voltar
                   </button>
                 </div>
               )}
