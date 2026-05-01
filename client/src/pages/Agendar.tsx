@@ -307,7 +307,6 @@ export default function Agendar() {
     <div className="min-h-screen bg-[#140000] text-white p-4">
       <div className="max-w-xl mx-auto space-y-6">
         <div className="text-center space-y-4 rounded-2xl border border-[#6e2317] bg-[#1b0402] p-6">
-          <img
 <img
   src="/belarmino-logo.png"
   alt="Belarmino Barber Shop"
