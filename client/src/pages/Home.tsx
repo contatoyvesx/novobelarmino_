@@ -592,3 +592,114 @@ export default function Home() {
           </div>
         </div>
       </section>
+            {/* Portfolio Section - Carousel */}
+      <section id="portfolio" className="py-20 px-4 bg-[#2a0906] relative z-10">
+        <div className="max-w-4xl mx-auto">
+          <h2
+            className="text-4xl md:text-5xl font-bold text-center mb-4 text-[#D9A66A]"
+            style={{ fontFamily: "'Playfair Display', serif" }}
+          >
+            Galeria de Trabalhos
+          </h2>
+
+          <div className="w-24 h-1 bg-gradient-to-r from-transparent via-[#D9A66A] to-transparent mx-auto mb-16"></div>
+
+          <div className="relative max-w-2xl mx-auto">
+            <div className="relative overflow-hidden rounded-lg border-4 border-[#D9A66A] shadow-lg">
+              <div className="aspect-square flex items-center justify-center overflow-hidden relative">
+                {portfolio.map((item, index) => (
+                  <div
+                    key={index}
+                    className={`absolute inset-0 transition-opacity duration-500 ${
+                      index === carouselIndex ? "opacity-100" : "opacity-0"
+                    }`}
+                  >
+                    <img
+                      src={item.image}
+                      alt={item.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={prevSlide}
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-[#D9A66A] text-black rounded-full w-10 h-10 flex items-center justify-center"
+              >
+                ‹
+              </button>
+
+              <button
+                onClick={nextSlide}
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-[#D9A66A] text-black rounded-full w-10 h-10 flex items-center justify-center"
+              >
+                ›
+              </button>
+            </div>
+
+            <div className="flex justify-center gap-3 mt-6">
+              {portfolio.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToSlide(index)}
+                  className={`w-2.5 h-2.5 rounded-full ${
+                    index === carouselIndex
+                      ? "bg-[#D9A66A] w-6"
+                      : "bg-[#6e2317]"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Barbearia */}
+      <section className="py-20 px-4 bg-[#140000] relative z-10">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-4xl font-bold text-center mb-4 text-[#D9A66A]">
+            Nossa Barbearia
+          </h2>
+
+          <div className="w-24 h-1 bg-gradient-to-r from-transparent via-[#D9A66A] to-transparent mx-auto mb-12"></div>
+
+          <div className="overflow-hidden rounded-lg border-4 border-[#D9A66A] shadow-lg">
+            <img
+              src="/barbearia.png"
+              alt="Barbearia"
+              className="w-full h-auto object-cover"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Contato */}
+      <section id="contato" className="py-20 px-4 bg-[#2a0906] relative z-10">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-4xl font-bold mb-4 text-[#D9A66A]">
+            Contato
+          </h2>
+
+          <div className="w-24 h-1 bg-gradient-to-r from-transparent via-[#D9A66A] to-transparent mx-auto mb-12"></div>
+
+          <p className="text-gray-300 mb-4">
+            Clique abaixo para falar direto no WhatsApp
+          </p>
+
+          <button
+            onClick={handleContatoClick}
+            className="bg-[#D9A66A] text-black px-6 py-3 rounded-lg font-bold hover:opacity-90"
+          >
+            Falar no WhatsApp
+          </button>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-[#140000] border-t border-[#D9A66A] py-6 text-center text-sm text-gray-400">
+        © 2026 Barbearia Belarmino
+      </footer>
+    </div>
+  );
+}
