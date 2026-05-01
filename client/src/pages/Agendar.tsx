@@ -185,49 +185,54 @@ export default function Agendar() {
   }
 
   async function confirmarAgendamento() {
-    if (!user) {
-      setMensagemErro("Faça login com Google para continuar.");
-      return;
-    }
+  if (!user) {
+    setMensagemErro("Faça login com Google para continuar.");
+    return;
+  }
 
-    if (!selectedDate || !selectedBarbeiroId || !selectedHora) {
-      setMensagemErro("Escolha data, barbeiro e horário.");
-      return;
-    }
+  if (!selectedDate || !selectedBarbeiroId || !selectedHora) {
+    setMensagemErro("Escolha data, barbeiro e horário.");
+    return;
+  }
 
-    if (!cliente.trim()) {
-      setMensagemErro("Informe seu nome.");
-      return;
-    }
+  if (!cliente.trim()) {
+    setMensagemErro("Informe seu nome.");
+    return;
+  }
 
-    if (!telefoneValido(telefone)) {
-      setMensagemErro("Telefone inválido. Informe DDD + número correto.");
-      return;
-    }
+  if (!telefoneValido(telefone)) {
+    setMensagemErro("Telefone inválido. Informe DDD + número correto.");
+    return;
+  }
 
-    if (!servicosSelecionados.length) {
-      setMensagemErro("Escolha pelo menos um serviço.");
-      return;
-    }
+  if (!servicosSelecionados.length) {
+    setMensagemErro("Escolha pelo menos um serviço.");
+    return;
+  }
 
-    setSubmitting(true);
-    setMensagemErro("");
-    setMensagemSucesso("");
+  setSubmitting(true);
+  setMensagemErro("");
+  setMensagemSucesso("");
 
-    try {
-      const res = await fetch(API_URL + "/agendar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cliente: cliente.trim(),
-          telefone: telefone.replace(/\D/g, ""),
-          servico: servicosSelecionados.join(", "),
-          data: selectedDate,
-          hora: selectedHora,
-          barbeiro_id: selectedBarbeiroId,
-        }),
-      });
+  try {
+    // 🔥 ESSA LINHA É A CORREÇÃO
+    const token = await user.getIdToken();
 
+    const res = await fetch(API_URL + "/agendar", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`, // 🔥 ESSA TAMBÉM
+      },
+      body: JSON.stringify({
+        cliente: cliente.trim(),
+        telefone: telefone.replace(/\D/g, ""),
+        servico: servicosSelecionados.join(", "),
+        data: selectedDate,
+        hora: selectedHora,
+        barbeiro_id: selectedBarbeiroId,
+      }),
+    });
       const contentType = res.headers.get("content-type") || "";
 
       const payload = contentType.includes("application/json")
