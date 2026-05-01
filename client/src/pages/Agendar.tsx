@@ -185,54 +185,54 @@ export default function Agendar() {
   }
 
   async function confirmarAgendamento() {
-  if (!user) {
-    setMensagemErro("Faça login com Google para continuar.");
-    return;
-  }
+    if (!user) {
+      setMensagemErro("Faça login com Google para continuar.");
+      return;
+    }
 
-  if (!selectedDate || !selectedBarbeiroId || !selectedHora) {
-    setMensagemErro("Escolha data, barbeiro e horário.");
-    return;
-  }
+    if (!selectedDate || !selectedBarbeiroId || !selectedHora) {
+      setMensagemErro("Escolha data, barbeiro e horário.");
+      return;
+    }
 
-  if (!cliente.trim()) {
-    setMensagemErro("Informe seu nome.");
-    return;
-  }
+    if (!cliente.trim()) {
+      setMensagemErro("Informe seu nome.");
+      return;
+    }
 
-  if (!telefoneValido(telefone)) {
-    setMensagemErro("Telefone inválido. Informe DDD + número correto.");
-    return;
-  }
+    if (!telefoneValido(telefone)) {
+      setMensagemErro("Telefone inválido. Informe DDD + número correto.");
+      return;
+    }
 
-  if (!servicosSelecionados.length) {
-    setMensagemErro("Escolha pelo menos um serviço.");
-    return;
-  }
+    if (!servicosSelecionados.length) {
+      setMensagemErro("Escolha pelo menos um serviço.");
+      return;
+    }
 
-  setSubmitting(true);
-  setMensagemErro("");
-  setMensagemSucesso("");
+    setSubmitting(true);
+    setMensagemErro("");
+    setMensagemSucesso("");
 
-  try {
-    // 🔥 ESSA LINHA É A CORREÇÃO
-    const token = await user.getIdToken();
+    try {
+      const token = await user.getIdToken();
 
-    const res = await fetch(API_URL + "/agendar", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`, // 🔥 ESSA TAMBÉM
-      },
-      body: JSON.stringify({
-        cliente: cliente.trim(),
-        telefone: telefone.replace(/\D/g, ""),
-        servico: servicosSelecionados.join(", "),
-        data: selectedDate,
-        hora: selectedHora,
-        barbeiro_id: selectedBarbeiroId,
-      }),
-    });
+      const res = await fetch(API_URL + "/agendar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          cliente: cliente.trim(),
+          telefone: telefone.replace(/\D/g, ""),
+          servico: servicosSelecionados.join(", "),
+          data: selectedDate,
+          hora: selectedHora,
+          barbeiro_id: selectedBarbeiroId,
+        }),
+      });
+
       const contentType = res.headers.get("content-type") || "";
 
       const payload = contentType.includes("application/json")
@@ -274,6 +274,12 @@ export default function Agendar() {
     return (
       <div className="min-h-screen bg-[#140000] text-white p-4 flex items-center justify-center">
         <div className="max-w-md w-full rounded-2xl border border-[#6e2317] bg-[#1b0402] p-6 text-center space-y-4">
+          <img
+            src="/logo.png"
+            alt="Belarmino Barber Shop"
+            className="mx-auto h-20 object-contain"
+          />
+
           <h1 className="text-3xl font-bold text-[#D9A66A]">
             Agendar Horário
           </h1>
@@ -298,29 +304,29 @@ export default function Agendar() {
   }
 
   return (
-<div className="text-center space-y-4 rounded-2xl border border-[#6e2317] bg-[#1b0402] p-6">
-  <img
-    src="/logo.png"
-    alt="Belarmino Barber Shop"
-    className="mx-auto h-16 object-contain"
-  />
+    <div className="min-h-screen bg-[#140000] text-white p-4">
+      <div className="max-w-xl mx-auto space-y-6">
+        <div className="text-center space-y-4 rounded-2xl border border-[#6e2317] bg-[#1b0402] p-6">
+          <img
+            src="/logo.png"
+            alt="Belarmino Barber Shop"
+            className="mx-auto h-20 object-contain"
+          />
 
-  <p className="text-xs tracking-[0.3em] text-[#D9A66A]">
-    AGENDAMENTO ONLINE
-  </p>
+          <p className="text-xs tracking-[0.3em] text-[#D9A66A]">
+            AGENDAMENTO ONLINE
+          </p>
 
-  <h1 className="text-3xl font-bold text-white">
-    Escolha seu horário
-  </h1>
+          <h1 className="text-3xl font-bold text-white">Escolha seu horário</h1>
 
-  <p className="text-sm text-[#E8C8A3]">
-    Preencha os dados abaixo para confirmar seu agendamento.
-  </p>
+          <p className="text-sm text-[#E8C8A3]">
+            Preencha os dados abaixo para confirmar seu agendamento.
+          </p>
 
-  <p className="text-xs text-[#E8C8A3]">
-    Logado como: {user.displayName || user.email}
-  </p>
-</div>
+          <p className="text-xs text-[#E8C8A3]">
+            Logado como: {user.displayName || user.email}
+          </p>
+        </div>
 
         <div className="grid grid-cols-3 gap-2">
           {[1, 2, 3].map((n) => (
