@@ -274,11 +274,11 @@ export default function Agendar() {
     return (
       <div className="min-h-screen bg-[#140000] text-white p-4 flex items-center justify-center">
         <div className="max-w-md w-full rounded-2xl border border-[#6e2317] bg-[#1b0402] p-6 text-center space-y-4">
-          <img
-            src="/logo.png"
-            alt="Belarmino Barber Shop"
-            className="mx-auto h-20 object-contain"
-          />
+<img
+  src="/belarmino-logo.png"
+  alt="Belarmino Barber Shop"
+  className="mx-auto h-24 object-contain"
+/>
 
           <h1 className="text-3xl font-bold text-[#D9A66A]">
             Agendar Horário
@@ -308,10 +308,11 @@ export default function Agendar() {
       <div className="max-w-xl mx-auto space-y-6">
         <div className="text-center space-y-4 rounded-2xl border border-[#6e2317] bg-[#1b0402] p-6">
           <img
-            src="/logo.png"
-            alt="Belarmino Barber Shop"
-            className="mx-auto h-20 object-contain"
-          />
+<img
+  src="/belarmino-logo.png"
+  alt="Belarmino Barber Shop"
+  className="mx-auto h-24 object-contain"
+/>
 
           <p className="text-xs tracking-[0.3em] text-[#D9A66A]">
             AGENDAMENTO ONLINE
