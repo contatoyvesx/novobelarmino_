@@ -277,7 +277,7 @@ export default function Agendar() {
 <img
   src="/belarmino-logo.png"
   alt="Belarmino Barber Shop"
-  className="mx-auto h-24 object-contain"
+  className="mx-auto h-24 object-contain mb-2"
 />
 
           <h1 className="text-3xl font-bold text-[#D9A66A]">
