@@ -171,25 +171,51 @@ export default function Home() {
               <a href="#contato" onClick={() => setMobileMenuOpen(false)} className="block text-[#E8C8A3] py-2 font-semibold uppercase">Contato</a>
               <Link href="/agendar" onClick={() => setMobileMenuOpen(false)} className="block text-[#E8C8A3] py-2 font-semibold uppercase">Agendar</Link>
 
-              <div className="pt-3 border-t border-[#D9A66A]/20">
-                {!user ? (
-                  <div className="text-sm text-neutral-400">Não logado</div>
-                ) : (
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {user.photoURL && <img src={user.photoURL} alt="Usuário" className="w-8 h-8 rounded-full" />}
-                      <div className="min-w-0">
-                        <p className="text-sm text-[#E8C8A3] truncate">{user.displayName || "Usuário logado"}</p>
-                        <p className="text-xs text-neutral-400 truncate">{user.email}</p>
-                      </div>
-                    </div>
+<div className="pt-3 border-t border-[#D9A66A]/20">
+  {!user ? (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-sm text-[#E8C8A3]/70">
+        Conta: Não logado
+      </span>
 
-                    <button onClick={handleLogout} className="text-sm text-red-300 hover:text-red-400">
-                      Sair
-                    </button>
-                  </div>
-                )}
-              </div>
+      <Link
+        href="/agendar"
+        onClick={handleMobileMenuClose}
+        className="text-xs bg-[#D9A66A] text-black px-3 py-1 rounded-lg font-semibold"
+      >
+        Entrar
+      </Link>
+    </div>
+  ) : (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2 min-w-0">
+        {user.photoURL && (
+          <img
+            src={user.photoURL}
+            alt="Usuário"
+            className="w-8 h-8 rounded-full"
+          />
+        )}
+
+        <div className="min-w-0">
+          <p className="text-sm text-[#E8C8A3] truncate">
+            {user.displayName?.split(" ")[0]}
+          </p>
+          <p className="text-xs text-neutral-400 truncate">
+            {user.email}
+          </p>
+        </div>
+      </div>
+
+      <button
+        onClick={handleLogout}
+        className="text-xs bg-red-500/20 border border-red-500/40 text-red-300 px-3 py-1 rounded-lg"
+      >
+        Sair
+      </button>
+    </div>
+  )}
+</div>
 
               <button onClick={handleAgendarClick} className="w-full btn-retro mt-4">
                 Agendar
