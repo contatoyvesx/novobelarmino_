@@ -607,7 +607,31 @@ export default function Agendar() {
             </div>
           </div>
         )}
-      </div>
+
+        {etapa === 4 && (
+          <div className="space-y-5 rounded-2xl border border-[#6e2317] bg-[#1b0402] p-5">
+            <h2 className="text-2xl font-bold text-[#D9A66A]">
+              Meus Agendamentos
+            </h2>
+
+            <p className="text-sm text-[#E8C8A3]">
+              Aqui aparecerão seus agendamentos.
+            </p>
+
+            <div className="rounded-xl border border-[#6e2317] bg-[#140000] p-4 text-sm text-[#E8C8A3] text-center">
+             Nenhum agendamento encontrado ainda.
+            Faça seu primeiro agendamento.
+            </div>
+
+            <button
+              onClick={() => setEtapa(1)}
+              className="w-full rounded-xl bg-[#D9A66A] text-black py-3 font-semibold"
+            >
+              Novo agendamento
+            </button>
+          </div>
+        )}
+      </div>      
     </div>
   );
 }
