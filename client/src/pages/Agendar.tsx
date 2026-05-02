@@ -297,15 +297,15 @@ export default function Agendar() {
             Voltar ao site
           </button>
 
-          <button
-            onClick={() => {
-              setAgendamentoConfirmado(false);
-              setEtapa(1);
-            }}
-            className="w-full rounded-xl border border-[#6e2317] py-3"
-          >
-            Ver meus agendamentos
-          </button>
+<button
+  onClick={() => {
+    setAgendamentoConfirmado(false);
+    setEtapa(4);
+  }}
+  className="w-full rounded-xl border border-[#6e2317] py-3"
+>
+  Ver meus agendamentos
+</button>
         </div>
 
       </div>
