@@ -180,6 +180,19 @@ function agendarRoute(app: Express) {
     const { data, hora, barbeiro_id, telefone, servico } = parsed.data;
 
     try {
+      const total = await sql<{ count: number }[]>`
+        select count(*)::int as count
+        from agendamentos
+        where cliente = ${userName}
+          and status <> 'cancelado'
+      `;
+
+      if ((total[0]?.count ?? 0) >= 4) {
+        return res.status(400).json({
+          mensagem: "Você atingiu o limite de 4 agendamentos.",
+        });
+      }
+
       const config = await carregarConfigAgenda(barbeiro_id, data);
       const inicio = hora;
       const fim = toHora(toMin(hora) + config.duracao);
@@ -237,9 +250,50 @@ function agendarRoute(app: Express) {
   });
 }
 
+function meusAgendamentosRoute(app: Express) {
+  app.get("/api/meus-agendamentos", async (req: Request, res: Response) => {
+    const token = req.headers.authorization?.split("Bearer ")[1];
+
+    if (!token) {
+      return res.status(401).json({ mensagem: "Não autenticado" });
+    }
+
+    let userName = "";
+
+    try {
+      const decoded = await auth.verifyIdToken(token);
+      userName = decoded.name || decoded.email || "";
+    } catch (e: any) {
+      return res.status(401).json({
+        mensagem: "Token inválido",
+        detalhe: e?.message,
+      });
+    }
+
+    try {
+      const agendamentos = await sql`
+        select id, data, inicio, fim, servico, status
+        from agendamentos
+        where cliente = ${userName}
+        order by data desc, inicio desc
+      `;
+
+      return res.json(agendamentos);
+    } catch (e: any) {
+      console.error("Erro em /api/meus-agendamentos:", e);
+
+      return res.status(500).json({
+        mensagem: "Erro ao buscar agendamentos",
+        detalhe: e?.message,
+      });
+    }
+  });
+}
+
 /* ================= EXPORT ================= */
 
 export function registrarRotasDeAgenda(app: Express) {
   horariosRoute(app);
   agendarRoute(app);
+  meusAgendamentosRoute(app);
 }
