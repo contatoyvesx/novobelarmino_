@@ -82,7 +82,8 @@ export default function Agendar() {
 
   const [mensagemErro, setMensagemErro] = useState("");
   const [mensagemSucesso, setMensagemSucesso] = useState("");
-
+  const [agendamentoConfirmado, setAgendamentoConfirmado] = useState(false);
+  
   const [user, setUser] = useState<User | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
 
@@ -244,11 +245,8 @@ export default function Agendar() {
         return;
       }
 
-      setMensagemSucesso(
-        "Agendamento solicitado. A confirmação virá pelo WhatsApp."
-      );
-
-      setEtapa(1);
+     setAgendamentoConfirmado(true);
+      
       setSelectedHora("");
       setSelectedBarbeiroId("");
       setTelefone("");
@@ -269,6 +267,48 @@ export default function Agendar() {
       </div>
     );
   }
+
+  if (agendamentoConfirmado) {
+  return (
+    <div className="min-h-screen bg-[#140000] text-white flex items-center justify-center p-4">
+      <div className="max-w-md w-full rounded-2xl border border-[#6e2317] bg-[#1b0402] p-6 text-center space-y-5">
+
+        <img
+          src="/belarmino-logo.png"
+          className="mx-auto h-20 object-contain"
+        />
+
+        <h1 className="text-2xl font-bold text-[#D9A66A]">
+          Agendamento Confirmado
+        </h1>
+
+        <p className="text-sm text-[#E8C8A3]">
+          Seu horário foi registrado com sucesso.
+        </p>
+
+        <div className="space-y-3">
+          <button
+            onClick={() => window.location.href = "/"}
+            className="w-full rounded-xl bg-[#D9A66A] text-black py-3 font-semibold"
+          >
+            Voltar ao site
+          </button>
+
+          <button
+            onClick={() => {
+              setAgendamentoConfirmado(false);
+              setEtapa(1);
+            }}
+            className="w-full rounded-xl border border-[#6e2317] py-3"
+          >
+            Ver meus agendamentos
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+}
 
   if (!user) {
     return (
