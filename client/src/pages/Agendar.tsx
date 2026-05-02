@@ -36,6 +36,15 @@ type Barbeiro = {
   foto: string;
 };
 
+type MeuAgendamento = {
+  id: number;
+  data: string;
+  inicio: string;
+  fim?: string;
+  servico: string;
+  status: string;
+};
+
 function telefoneValido(tel: string) {
   const limpo = tel.replace(/\D/g, "");
 
@@ -61,6 +70,11 @@ function formatarTelefone(valor: string) {
   return `(${limpo.slice(0, 2)}) ${limpo.slice(2, 7)}-${limpo.slice(7)}`;
 }
 
+function formatarDataAgendamento(data: string) {
+  const parsed = new Date(data + "T00:00:00");
+  return Number.isNaN(parsed.getTime()) ? data : formatDatePtBr(parsed);
+}
+
 export default function Agendar() {
   const dataHoje = useMemo(() => formatDateApi(new Date()), []);
   const API_URL = import.meta.env.VITE_API_URL || "/api";
@@ -83,7 +97,10 @@ export default function Agendar() {
   const [mensagemErro, setMensagemErro] = useState("");
   const [mensagemSucesso, setMensagemSucesso] = useState("");
   const [agendamentoConfirmado, setAgendamentoConfirmado] = useState(false);
-  
+
+  const [meusAgendamentos, setMeusAgendamentos] = useState<MeuAgendamento[]>([]);
+  const [loadingMeusAgendamentos, setLoadingMeusAgendamentos] = useState(false);
+
   const [user, setUser] = useState<User | null>(null);
   const [loadingUser, setLoadingUser] = useState(true);
 
@@ -167,6 +184,47 @@ export default function Agendar() {
     void buscarHorarios(selectedDate, selectedBarbeiroId);
   }, [buscarHorarios, selectedDate, selectedBarbeiroId]);
 
+  useEffect(() => {
+    if (etapa !== 4 || !user) return;
+
+    async function carregarMeusAgendamentos() {
+      setLoadingMeusAgendamentos(true);
+      setMensagemErro("");
+
+      try {
+        const token = await user.getIdToken();
+
+        const res = await fetch(API_URL + "/meus-agendamentos", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          cache: "no-store",
+        });
+
+        const contentType = res.headers.get("content-type") || "";
+
+        const payload = contentType.includes("application/json")
+          ? await res.json()
+          : await res.text();
+
+        if (!res.ok) {
+          setMensagemErro(getMensagemErro(payload));
+          setMeusAgendamentos([]);
+          return;
+        }
+
+        setMeusAgendamentos(Array.isArray(payload) ? payload : []);
+      } catch {
+        setMensagemErro("Erro ao buscar seus agendamentos.");
+        setMeusAgendamentos([]);
+      } finally {
+        setLoadingMeusAgendamentos(false);
+      }
+    }
+
+    void carregarMeusAgendamentos();
+  }, [etapa, user, API_URL]);
+
   async function login() {
     try {
       setMensagemErro("");
@@ -245,14 +303,15 @@ export default function Agendar() {
         return;
       }
 
-     setAgendamentoConfirmado(true);
-      
+      setAgendamentoConfirmado(true);
+
       setSelectedHora("");
       setSelectedBarbeiroId("");
       setTelefone("");
       setServicosSelecionados([]);
       setJaBuscou(false);
       setHorarios([]);
+      setMeusAgendamentos([]);
     } catch {
       setMensagemErro("Erro ao enviar agendamento.");
     } finally {
@@ -269,59 +328,58 @@ export default function Agendar() {
   }
 
   if (agendamentoConfirmado) {
-  return (
-    <div className="min-h-screen bg-[#140000] text-white flex items-center justify-center p-4">
-      <div className="max-w-md w-full rounded-2xl border border-[#6e2317] bg-[#1b0402] p-6 text-center space-y-5">
+    return (
+      <div className="min-h-screen bg-[#140000] text-white flex items-center justify-center p-4">
+        <div className="max-w-md w-full rounded-2xl border border-[#6e2317] bg-[#1b0402] p-6 text-center space-y-5">
+          <img
+            src="/belarmino-logo.png"
+            alt="Belarmino Barber Shop"
+            className="mx-auto h-20 object-contain"
+          />
 
-        <img
-          src="/belarmino-logo.png"
-          className="mx-auto h-20 object-contain"
-        />
+          <h1 className="text-2xl font-bold text-[#D9A66A]">
+            Agendamento Confirmado
+          </h1>
 
-        <h1 className="text-2xl font-bold text-[#D9A66A]">
-          Agendamento Confirmado
-        </h1>
+          <p className="text-sm text-[#E8C8A3]">
+            Seu horário foi registrado com sucesso.
+          </p>
 
-        <p className="text-sm text-[#E8C8A3]">
-          Seu horário foi registrado com sucesso.
-        </p>
+          <div className="space-y-3">
+            <button
+              onClick={() => {
+                setAgendamentoConfirmado(false);
+                window.location.href = "/";
+              }}
+              className="w-full rounded-xl bg-[#D9A66A] text-black py-3 font-semibold"
+            >
+              Voltar ao site
+            </button>
 
-        <div className="space-y-3">
-          <button
-            onClick={() => {
-  setAgendamentoConfirmado(false);
-  window.location.href = "/";
-}}
-            className="w-full rounded-xl bg-[#D9A66A] text-black py-3 font-semibold"
-          >
-            Voltar ao site
-          </button>
-
-<button
-  onClick={() => {
-    setAgendamentoConfirmado(false);
-    setEtapa(4);
-  }}
-  className="w-full rounded-xl border border-[#6e2317] py-3"
->
-  Ver meus agendamentos
-</button>
+            <button
+              onClick={() => {
+                setAgendamentoConfirmado(false);
+                setEtapa(4);
+              }}
+              className="w-full rounded-xl border border-[#6e2317] py-3"
+            >
+              Ver meus agendamentos
+            </button>
+          </div>
         </div>
-
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   if (!user) {
     return (
       <div className="min-h-screen bg-[#140000] text-white p-4 flex items-center justify-center">
         <div className="max-w-md w-full rounded-2xl border border-[#6e2317] bg-[#1b0402] p-6 text-center space-y-4">
-<img
-  src="/belarmino-logo.png"
-  alt="Belarmino Barber Shop"
-  className="mx-auto h-24 object-contain mb-2"
-/>
+          <img
+            src="/belarmino-logo.png"
+            alt="Belarmino Barber Shop"
+            className="mx-auto h-24 object-contain mb-2"
+          />
 
           <h1 className="text-3xl font-bold text-[#D9A66A]">
             Agendar Horário
@@ -350,11 +408,11 @@ export default function Agendar() {
     <div className="min-h-screen bg-[#140000] text-white p-4">
       <div className="max-w-xl mx-auto space-y-6">
         <div className="text-center space-y-4 rounded-2xl border border-[#6e2317] bg-[#1b0402] p-6">
-<img
-  src="/belarmino-logo.png"
-  alt="Belarmino Barber Shop"
-  className="mx-auto h-24 object-contain"
-/>
+          <img
+            src="/belarmino-logo.png"
+            alt="Belarmino Barber Shop"
+            className="mx-auto h-24 object-contain"
+          />
 
           <p className="text-xs tracking-[0.3em] text-[#D9A66A]">
             AGENDAMENTO ONLINE
@@ -371,8 +429,8 @@ export default function Agendar() {
           </p>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
-          {[1, 2, 3].map((n) => (
+        <div className="grid grid-cols-4 gap-2">
+          {[1, 2, 3, 4].map((n) => (
             <div
               key={n}
               className={cn(
@@ -615,13 +673,47 @@ export default function Agendar() {
             </h2>
 
             <p className="text-sm text-[#E8C8A3]">
-              Aqui aparecerão seus agendamentos.
+              Agendamentos feitos com sua conta Google.
             </p>
 
-            <div className="rounded-xl border border-[#6e2317] bg-[#140000] p-4 text-sm text-[#E8C8A3] text-center">
-             Nenhum agendamento encontrado ainda.
-            Faça seu primeiro agendamento.
-            </div>
+            {loadingMeusAgendamentos ? (
+              <div className="rounded-xl border border-[#6e2317] bg-[#140000] p-4 text-sm text-[#E8C8A3] text-center">
+                Carregando agendamentos...
+              </div>
+            ) : meusAgendamentos.length === 0 ? (
+              <div className="rounded-xl border border-[#6e2317] bg-[#140000] p-4 text-sm text-[#E8C8A3] text-center">
+                Nenhum agendamento encontrado.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {meusAgendamentos.map((a) => (
+                  <div
+                    key={a.id}
+                    className="rounded-xl border border-[#6e2317] bg-[#140000] p-4 text-sm text-[#E8C8A3] space-y-1"
+                  >
+                    <p>
+                      <strong className="text-[#D9A66A]">Data:</strong>{" "}
+                      {formatarDataAgendamento(a.data)}
+                    </p>
+
+                    <p>
+                      <strong className="text-[#D9A66A]">Horário:</strong>{" "}
+                      {a.inicio}
+                    </p>
+
+                    <p>
+                      <strong className="text-[#D9A66A]">Serviço:</strong>{" "}
+                      {a.servico}
+                    </p>
+
+                    <p>
+                      <strong className="text-[#D9A66A]">Status:</strong>{" "}
+                      {a.status}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <button
               onClick={() => setEtapa(1)}
@@ -631,7 +723,7 @@ export default function Agendar() {
             </button>
           </div>
         )}
-      </div>      
+      </div>
     </div>
   );
 }
