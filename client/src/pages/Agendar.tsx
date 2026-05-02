@@ -288,7 +288,10 @@ export default function Agendar() {
 
         <div className="space-y-3">
           <button
-            onClick={() => window.location.href = "/"}
+            onClick={() => {
+  setAgendamentoConfirmado(false);
+  window.location.href = "/";
+}}
             className="w-full rounded-xl bg-[#D9A66A] text-black py-3 font-semibold"
           >
             Voltar ao site
