@@ -27,6 +27,8 @@ const toMin = (h: string) => {
 const toHora = (m: number) =>
   `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
+const hojeApi = () => new Date().toISOString().slice(0, 10);
+
 /* ================= DB ================= */
 
 async function carregarConfigAgenda(
@@ -180,16 +182,19 @@ function agendarRoute(app: Express) {
     const { data, hora, barbeiro_id, telefone, servico } = parsed.data;
 
     try {
+      const hoje = hojeApi();
+
       const total = await sql<{ count: number }[]>`
         select count(*)::int as count
         from agendamentos
         where cliente = ${userName}
           and status <> 'cancelado'
+          and data >= ${hoje}
       `;
 
       if ((total[0]?.count ?? 0) >= 4) {
         return res.status(400).json({
-          mensagem: "Você atingiu o limite de 4 agendamentos.",
+          mensagem: "Você atingiu o limite de 4 agendamentos ativos.",
         });
       }
 
