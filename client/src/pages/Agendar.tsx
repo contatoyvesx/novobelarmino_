@@ -71,14 +71,18 @@ function formatarTelefone(valor: string) {
 }
 
 function formatarDataAgendamento(data: string) {
-  const parsed = new Date(data + "T00:00:00");
-  return Number.isNaN(parsed.getTime()) ? data : formatDatePtBr(parsed);
+  const parsed = new Date(data);
+
+  return Number.isNaN(parsed.getTime())
+    ? data
+    : formatDatePtBr(parsed);
 }
 
 function statusLabel(status: string) {
   if (status === "confirmado") return "Confirmado";
   if (status === "pendente") return "Pendente";
   if (status === "cancelado") return "Cancelado";
+
   return status;
 }
 
@@ -708,100 +712,124 @@ export default function Agendar() {
           </div>
         )}
 
-        {tela === "meus" && (
-          <div className="space-y-5 rounded-2xl border border-[#6e2317] bg-[#1b0402] p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-2xl font-bold text-[#D9A66A]">
-                  Meus Agendamentos
-                </h2>
+       {tela === "meus" && (
+  <div className="space-y-5 rounded-2xl border border-[#6e2317] bg-[#1b0402] p-5">
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <h2 className="text-2xl font-bold text-[#D9A66A]">
+          Meus Agendamentos
+        </h2>
 
-                <p className="text-sm text-[#E8C8A3]">
-                  Seus horários marcados aparecem aqui.
-                </p>
-              </div>
-
-              <button
-                onClick={carregarMeusAgendamentos}
-                className="rounded-xl border border-[#6e2317] px-4 py-2 text-sm font-semibold text-[#E8C8A3]"
-              >
-                Atualizar
-              </button>
-            </div>
-
-            {loadingMeusAgendamentos ? (
-              <div className="rounded-xl border border-[#6e2317] bg-[#140000] p-4 text-sm text-[#E8C8A3] text-center">
-                Carregando agendamentos...
-              </div>
-            ) : meusAgendamentos.length === 0 ? (
-              <div className="rounded-xl border border-[#6e2317] bg-[#140000] p-5 text-center space-y-3">
-                <p className="text-[#E8C8A3]">Nenhum agendamento encontrado.</p>
-
-                <button
-                  onClick={() => {
-                    setTela("agendar");
-                    setEtapa(1);
-                  }}
-                  className="w-full rounded-xl bg-[#D9A66A] text-black py-3 font-semibold"
-                >
-                  Fazer agendamento
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {meusAgendamentos.map((a) => (
-                  <div
-                    key={a.id}
-                    className="rounded-xl border border-[#6e2317] bg-[#140000] p-4 text-sm text-[#E8C8A3] space-y-3"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-lg font-bold text-white">
-                          {formatarDataAgendamento(a.data)}
-                        </p>
-
-                        <p className="text-[#D9A66A] font-semibold">
-                          {a.inicio}
-                        </p>
-                      </div>
-
-                      <span
-                        className={cn(
-                          "rounded-full px-3 py-1 text-xs font-bold border",
-                          a.status === "confirmado"
-                            ? "border-green-700 text-green-300 bg-green-950/30"
-                            : a.status === "cancelado"
-                              ? "border-red-700 text-red-300 bg-red-950/30"
-                              : "border-yellow-700 text-yellow-300 bg-yellow-950/30"
-                        )}
-                      >
-                        {statusLabel(a.status)}
-                      </span>
-                    </div>
-
-                    <div className="rounded-lg border border-[#6e2317] bg-[#1b0402] p-3">
-                      <p>
-                        <strong className="text-[#D9A66A]">Serviço:</strong>{" "}
-                        {a.servico}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-
-                <button
-                  onClick={() => {
-                    setTela("agendar");
-                    setEtapa(1);
-                  }}
-                  className="w-full rounded-xl bg-[#D9A66A] text-black py-3 font-semibold"
-                >
-                  Novo agendamento
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        <p className="text-sm text-[#E8C8A3]">
+          Seus horários marcados aparecem aqui.
+        </p>
       </div>
+    </div>
+
+    <div className="rounded-xl border border-[#6e2317] bg-[#140000] p-3">
+      <input
+        type="date"
+        value={selectedDate}
+        onChange={(e) => setSelectedDate(e.target.value)}
+        className="w-full rounded-lg bg-[#1b0402] border border-[#6e2317] p-3 text-white"
+      />
+    </div>
+
+    {loadingMeusAgendamentos ? (
+      <div className="rounded-xl border border-[#6e2317] bg-[#140000] p-4 text-sm text-[#E8C8A3] text-center">
+        Carregando agendamentos...
+      </div>
+    ) : meusAgendamentos.filter((a) => a.data.slice(0, 10) === selectedDate)
+        .length === 0 ? (
+      <div className="rounded-xl border border-[#6e2317] bg-[#140000] p-5 text-center space-y-3">
+        <p className="text-[#E8C8A3]">
+          Nenhum agendamento nesta data.
+        </p>
+
+        <button
+          onClick={() => {
+            setTela("agendar");
+            setEtapa(1);
+          }}
+          className="w-full rounded-xl bg-[#D9A66A] text-black py-3 font-semibold"
+        >
+          Fazer agendamento
+        </button>
+      </div>
+    ) : (
+      <div className="space-y-4">
+        {meusAgendamentos
+          .filter((a) => a.data.slice(0, 10) === selectedDate)
+          .map((a) => {
+            const barbeiro =
+              barbeiros.find(
+                (b) => b.id === (a as any).barbeiro_id?.toString()
+              )?.nome || "Belarmino";
+
+            const dataFormatada = new Date(a.data).toLocaleDateString(
+  "pt-BR",
+  {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+  }
+);
+
+            return (
+              <div
+                key={a.id}
+                className="rounded-2xl border border-[#6e2317] bg-[#140000] p-5 space-y-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-2">
+                    <p className="text-xl font-bold text-white capitalize">
+                      📅 {dataFormatada}
+                    </p>
+
+                    <p className="text-2xl font-bold text-[#D9A66A]">
+                      🕐 {a.inicio}
+                    </p>
+
+                    <p className="text-sm text-[#E8C8A3]">
+                      💈 {barbeiro}
+                    </p>
+
+                    <p className="text-sm text-[#E8C8A3]">
+                      ✂️ {a.servico}
+                    </p>
+                  </div>
+
+                  <span
+                    className={cn(
+                      "rounded-full px-4 py-2 text-xs font-bold border whitespace-nowrap",
+                      a.status === "confirmado"
+                        ? "border-green-700 text-green-300 bg-green-950/30"
+                        : a.status === "cancelado"
+                          ? "border-red-700 text-red-300 bg-red-950/30"
+                          : "border-yellow-700 text-yellow-300 bg-yellow-950/30"
+                    )}
+                  >
+                    {statusLabel(a.status)}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+
+        <button
+          onClick={() => {
+            setTela("agendar");
+            setEtapa(1);
+          }}
+          className="w-full rounded-xl bg-[#D9A66A] text-black py-3 font-semibold"
+        >
+          Novo agendamento
+        </button>
+      </div>
+    )}
+  </div>
+)}
+              </div>
     </div>
   );
 }
